@@ -21,4 +21,11 @@ fn main() {
         .get_matches();
     let characters = matches.value_of("characters").unwrap();
     println!("characters = {}", characters);
+
+    let char_regex = Regex::new(r"^\d+(\-\d+)?(,\d+(\-\d+)?)?$").unwrap();
+    if char_regex.is_match(characters) {
+        println!("Good list of characters :)")
+    } else {
+        println!("Bad list of characters!")
+    }
 }
