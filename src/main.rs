@@ -1,5 +1,9 @@
 extern crate clap;
-use clap::{App, Arg, ArgGroup, SubCommand};
+//use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg};
+
+extern crate regex;
+use regex::Regex;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -11,7 +15,8 @@ fn main() {
                 .short("c")
                 .long("characters")
                 .value_name("LIST")
-                .help("select only these characters"),
+                .help("select only these characters")
+                .required(true),
         )
         .get_matches();
     let characters = matches.value_of("characters").unwrap();
