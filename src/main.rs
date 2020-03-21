@@ -34,6 +34,11 @@ fn main() {
     }
 
     for char_part in characters.split(",") {
+        let positions: Vec<u32> = char_part.split("-")
+            .map(|s| s.parse::<u32>().unwrap()).collect();
         println!("char_part = {}", char_part);
+        for pos in positions {
+            println!("pos = {}", pos);
+        }
     }
 }
