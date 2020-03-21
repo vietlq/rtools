@@ -12,7 +12,20 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 fn handle_pos_parse(s: &str) -> u32 {
     match s.parse::<u32>() {
         Ok(n) => n,
-        Err(_) => std::u32::MAX
+        Err(_) => std::u32::MAX,
+    }
+}
+
+fn char_part_to_pair(char_part: &str) -> (u32, u32) {
+    let positions: Vec<u32> = char_part.split("-").map(|s| handle_pos_parse(s)).collect();
+    println!("char_part = {}", char_part);
+    for pos in &positions {
+        println!("pos = {}", pos);
+    }
+    match positions.len() {
+        1 => (positions[0], positions[0]),
+        2 => (positions[0], positions[1]),
+        _ => panic!("Invalid input!"),
     }
 }
 
@@ -41,11 +54,7 @@ fn main() {
     }
 
     for char_part in characters.split(",") {
-        let positions: Vec<u32> = char_part.split("-")
-            .map(|s| handle_pos_parse(s)).collect();
-        println!("char_part = {}", char_part);
-        for pos in positions {
-            println!("pos = {}", pos);
-        }
+        let (p1, p2) = char_part_to_pair(char_part);
+        println!("pair = ({}, {})", p1, p2);
     }
 }
