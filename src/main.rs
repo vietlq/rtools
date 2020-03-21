@@ -1,3 +1,5 @@
+use std::process;
+
 extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
 use clap::{App, Arg};
@@ -10,6 +12,8 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 fn main() {
     let matches = App::new("rcut")
         .version(VERSION)
+        .about("Replacement for GNU cut. Written in Rust.")
+        .author("Viet Le")
         .arg(
             Arg::with_name("characters")
                 .short("c")
@@ -20,12 +24,16 @@ fn main() {
         )
         .get_matches();
     let characters = matches.value_of("characters").unwrap();
-    println!("characters = {}", characters);
 
     let char_regex = Regex::new(r"^\d+(\-\d+)?(,\d+(\-\d+)?)?$").unwrap();
     if char_regex.is_match(characters) {
-        println!("Good list of characters :)")
+        println!("Good list of characters :)");
     } else {
-        println!("Bad list of characters!")
+        println!("Bad list of characters!");
+        process::exit(1);
+    }
+
+    for char_part in characters.split(",") {
+        println!("char_part = {}", char_part);
     }
 }
