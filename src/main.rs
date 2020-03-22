@@ -78,12 +78,13 @@ fn main() {
         let mut char_pos: usize = merged_pairs[pair_idx].0;
         let char_count = &uchars.len();
         let pair_count = merged_pairs.len();
+        let mut dst = [0; 8];
+
         while char_pos <= *char_count && pair_idx < pair_count {
             let (p1, p2) = merged_pairs[pair_idx];
             char_pos = cmp::max(p1, char_pos);
 
             if char_pos <= *char_count {
-                let mut dst = [0; 8];
                 std::io::stdout()
                     .write(&uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes())
                     .unwrap();
