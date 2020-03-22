@@ -11,15 +11,15 @@ use regex::Regex;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn handle_pos_parse(s: &str) -> u32 {
-    match s.parse::<u32>() {
+fn handle_pos_parse(s: &str) -> usize {
+    match s.parse::<usize>() {
         Ok(n) => n,
-        Err(_) => std::u32::MAX,
+        Err(_) => std::usize::MAX,
     }
 }
 
-fn char_part_to_pair(char_part: &str) -> (u32, u32) {
-    let positions: Vec<u32> = char_part.split("-").map(|s| handle_pos_parse(s)).collect();
+fn char_part_to_pair(char_part: &str) -> (usize, usize) {
+    let positions: Vec<usize> = char_part.split("-").map(|s| handle_pos_parse(s)).collect();
     match positions.len() {
         1 => (positions[0], positions[0]),
         2 => (positions[0], positions[1]),
@@ -49,7 +49,7 @@ fn main() {
         process::exit(1);
     }
 
-    let mut char_pairs: Vec<(u32, u32)> = characters
+    let mut char_pairs: Vec<(usize, usize)> = characters
         .split(",")
         .map(|char_part| char_part_to_pair(char_part))
         .filter(|(p1, p2)| p1 <= p2)
@@ -58,7 +58,7 @@ fn main() {
     for char_pair in &char_pairs {
         println!("char_pair = {:?}", char_pair);
     }
-    let mut merged_pairs: Vec<(u32, u32)> = vec![];
+    let mut merged_pairs: Vec<(usize, usize)> = vec![];
     for char_pair in &char_pairs {
         if merged_pairs.is_empty() {
             merged_pairs.push(char_pair.clone());
@@ -75,6 +75,20 @@ fn main() {
 
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
-        println!("line = {}", line.unwrap());
+        let rline = line.unwrap();
+        for (p1, p2) in &merged_pairs {
+            let len = &rline.len();
+            if *p1 > *len {
+                break;
+            }
+            // TODO: Handle UTF-8
+            let final_str = if *p2 < *len {
+                &rline[p1 - 1 .. *p2]
+            } else {
+                &rline[p1 - 1 ..]
+            };
+            std::io::stdout().write(final_str.as_bytes()).unwrap();
+        }
+        std::io::stdout().write("\n".as_bytes()).unwrap();
     }
 }
