@@ -55,9 +55,7 @@ fn main() {
         .filter(|(p1, p2)| p1 <= p2)
         .collect();
     char_pairs.sort();
-    for char_pair in &char_pairs {
-        println!("char_pair = {:?}", char_pair);
-    }
+
     let mut merged_pairs: Vec<(usize, usize)> = vec![];
     for char_pair in &char_pairs {
         if merged_pairs.is_empty() {
@@ -71,7 +69,6 @@ fn main() {
             }
         }
     }
-    println!("merged_pairs = {:?}", merged_pairs);
 
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
