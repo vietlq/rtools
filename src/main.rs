@@ -50,6 +50,7 @@ fn main() {
     let mut char_pairs: Vec<(u32, u32)> = characters
         .split(",")
         .map(|char_part| char_part_to_pair(char_part))
+        .filter(|(p1, p2)| p1 <= p2)
         .collect();
     char_pairs.sort();
     for char_pair in char_pairs {
