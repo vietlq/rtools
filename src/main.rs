@@ -1,6 +1,6 @@
-use std::{cmp, io, process, str};
-use std::io::{BufReader};
 use std::io::prelude::*;
+use std::io::BufReader;
+use std::{cmp, io, process, str};
 
 extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
@@ -73,7 +73,7 @@ fn main() {
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
         let rline = line.unwrap();
-        let uchars : Vec<_> = rline.chars().collect();
+        let uchars: Vec<_> = rline.chars().collect();
         let mut pair_idx: usize = 0;
         let mut char_pos: usize = merged_pairs[pair_idx].0;
         let char_count = &uchars.len();
@@ -83,7 +83,10 @@ fn main() {
             char_pos = cmp::max(p1, char_pos);
 
             if char_pos <= *char_count {
-                std::io::stdout().write(&uchars[char_pos - 1]).unwrap();
+                let mut dst = [0; 8];
+                std::io::stdout()
+                    .write(&uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes())
+                    .unwrap();
             }
 
             char_pos += 1;
@@ -91,6 +94,7 @@ fn main() {
                 pair_idx += 1;
             }
         }
+        /*
         for (p1, p2) in &merged_pairs {
             let len = &rline.len();
             if *p1 > *len {
@@ -100,12 +104,13 @@ fn main() {
             // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
             // https://crates.io/crates/unicode-segmentation
             let final_str = if *p2 < *len {
-                &rline[p1 - 1 .. *p2]
+                &rline[p1 - 1..*p2]
             } else {
-                &rline[p1 - 1 ..]
+                &rline[p1 - 1..]
             };
             std::io::stdout().write(final_str.as_bytes()).unwrap();
         }
+        */
         std::io::stdout().write("\n".as_bytes()).unwrap();
     }
 }
