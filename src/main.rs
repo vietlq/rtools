@@ -1,4 +1,4 @@
-use std::{cmp, io, process};
+use std::{cmp, io, process, str};
 use std::io::{BufReader};
 use std::io::prelude::*;
 
@@ -73,14 +73,24 @@ fn main() {
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
         let rline = line.unwrap();
-        let uchars = rline.chars();
-        let mut char_idx: usize = 0;
+        let uchars : Vec<_> = rline.chars().collect();
         let mut pair_idx: usize = 0;
-        /*
-        while char_idx < uchars.len() && pair_idx < merged_pairs.len() {
+        let mut char_pos: usize = merged_pairs[pair_idx].0;
+        let char_count = &uchars.len();
+        let pair_count = merged_pairs.len();
+        while char_pos <= *char_count && pair_idx < pair_count {
+            let (p1, p2) = merged_pairs[pair_idx];
+            char_pos = cmp::max(p1, char_pos);
 
+            if char_pos <= *char_count {
+                std::io::stdout().write(&uchars[char_pos - 1]).unwrap();
+            }
+
+            char_pos += 1;
+            if p2 < char_pos {
+                pair_idx += 1;
+            }
         }
-        */
         for (p1, p2) in &merged_pairs {
             let len = &rline.len();
             if *p1 > *len {
