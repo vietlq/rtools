@@ -1,5 +1,6 @@
-use std::cmp;
-use std::process;
+use std::{cmp, io, process};
+use std::io::{BufReader};
+use std::io::prelude::*;
 
 extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
@@ -71,4 +72,9 @@ fn main() {
         }
     }
     println!("merged_pairs = {:?}", merged_pairs);
+
+    let f = BufReader::new(io::stdin());
+    for line in f.lines() {
+        println!("line = {}", line.unwrap());
+    }
 }
