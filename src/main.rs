@@ -1,3 +1,4 @@
+use std::cmp;
 use std::process;
 
 extern crate clap;
@@ -53,7 +54,21 @@ fn main() {
         .filter(|(p1, p2)| p1 <= p2)
         .collect();
     char_pairs.sort();
-    for char_pair in char_pairs {
-        println!("char_pair = ({}, {})", char_pair.0, char_pair.1);
+    for char_pair in &char_pairs {
+        println!("char_pair = {:?}", char_pair);
     }
+    let mut merged_pairs: Vec<(u32, u32)> = vec![];
+    for char_pair in &char_pairs {
+        if merged_pairs.is_empty() {
+            merged_pairs.push(char_pair.clone());
+        } else {
+            let last_mut = merged_pairs.last_mut().unwrap();
+            if char_pair.0 <= last_mut.1 {
+                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
+            } else {
+                merged_pairs.push(char_pair.clone());
+            }
+        }
+    }
+    println!("merged_pairs = {:?}", merged_pairs);
 }
