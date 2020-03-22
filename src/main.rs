@@ -73,12 +73,22 @@ fn main() {
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
         let rline = line.unwrap();
+        let uchars = rline.chars();
+        let mut char_idx: usize = 0;
+        let mut pair_idx: usize = 0;
+        /*
+        while char_idx < uchars.len() && pair_idx < merged_pairs.len() {
+
+        }
+        */
         for (p1, p2) in &merged_pairs {
             let len = &rline.len();
             if *p1 > *len {
                 break;
             }
             // TODO: Handle UTF-8
+            // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+            // https://crates.io/crates/unicode-segmentation
             let final_str = if *p2 < *len {
                 &rline[p1 - 1 .. *p2]
             } else {
