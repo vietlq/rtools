@@ -80,6 +80,7 @@ fn main() {
         let pair_count = merged_pairs.len();
         let mut dst = [0; 8];
 
+        // Handle UTF-8
         while char_pos <= *char_count && pair_idx < pair_count {
             let (p1, p2) = merged_pairs[pair_idx];
             char_pos = cmp::max(p1, char_pos);
@@ -95,6 +96,25 @@ fn main() {
                 pair_idx += 1;
             }
         }
+
+        /*
+        // Handle ASCII only
+        for (p1, p2) in &merged_pairs {
+            let len = &rline.len();
+            if *p1 > *len {
+                break;
+            }
+            // TODO: Handle UTF-8
+            // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+            // https://crates.io/crates/unicode-segmentation
+            let final_str = if *p2 < *len {
+                &rline[p1 - 1..*p2]
+            } else {
+                &rline[p1 - 1..]
+            };
+            std::io::stdout().write(final_str.as_bytes()).unwrap();
+        }
+        */
 
         std::io::stdout().write("\n".as_bytes()).unwrap();
     }
