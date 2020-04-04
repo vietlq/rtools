@@ -4,6 +4,14 @@ version = "0.0.1"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "rcut"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rcut"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
