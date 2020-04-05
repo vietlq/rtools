@@ -1,13 +1,10 @@
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::{cmp, io, process, str};
+use std::{cmp, io, str};
 
 extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
 use clap::{App, Arg};
-
-extern crate regex;
-use regex::Regex;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -42,12 +39,6 @@ pub fn do_cut() {
         )
         .get_matches();
     let characters = matches.value_of("characters").unwrap();
-
-    let char_regex = Regex::new(r"^\d+(\-(\d+)?)?(,\d+(\-(\d+)?)?)*$").unwrap();
-    if !char_regex.is_match(characters) {
-        println!("Bad input for the flag -c");
-        process::exit(1);
-    }
 
     let mut char_pairs: Vec<(usize, usize)> = characters
         .split(",")
