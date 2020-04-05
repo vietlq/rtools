@@ -6,6 +6,10 @@ edition = "2018"
 description = "rcut is a Rust replacement for GNU cut."
 license = "MIT/Apache-2.0"
 repository = "https://github.com/vietlq/rcut"
+include = [
+    "src/*.rs",
+    "Cargo.toml"
+]
 
 # cargo metadata: https://doc.rust-lang.org/cargo/commands/cargo-metadata.html
 
