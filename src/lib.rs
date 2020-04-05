@@ -64,7 +64,7 @@ fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     ranged_pairs
 }
 
-fn process_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
     let mut pair_idx: usize = 0;
@@ -88,10 +88,16 @@ fn process_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
         }
     }
 
-    /*
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
+fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let mut out_bytes: Vec<u8> = vec![];
+
     // Handle ASCII only
-    for (start_pos, end_pos) in &ranged_pairs {
-        let len = &rline.len();
+    for (start_pos, end_pos) in ranged_pairs {
+        let len = &line.len();
         if *start_pos > *len {
             break;
         }
@@ -100,14 +106,13 @@ fn process_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
         // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
         // https://crates.io/crates/unicode-segmentation
         let final_str = if *end_pos < *len {
-            &rline[start_pos - 1..*end_pos]
+            &line[start_pos - 1..*end_pos]
         } else {
-            &rline[start_pos - 1..]
+            &line[start_pos - 1..]
         };
 
         out_bytes.extend(final_str.as_bytes());
     }
-    */
 
     out_bytes.extend("\n".as_bytes());
     out_bytes
@@ -135,7 +140,7 @@ pub fn do_cut() {
 
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
-        let out_bytes = process_line(&line.unwrap(), &ranged_pairs);
+        let out_bytes = process_line_utf8(&line.unwrap(), &ranged_pairs);
 
         std::io::stdout().write(&out_bytes).unwrap();
     }
