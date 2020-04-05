@@ -118,19 +118,14 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
     out_bytes
 }
 
-fn process_lines_utf8(ranged_pairs: &Vec<(usize, usize)>) {
+// Use higher order function instead of repeating the logic
+fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
+where
+    F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
+{
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
-        let out_bytes = process_line_utf8(&line.unwrap(), &ranged_pairs);
-
-        std::io::stdout().write(&out_bytes).unwrap();
-    }
-}
-
-fn process_lines_ascii(ranged_pairs: &Vec<(usize, usize)>) {
-    let f = BufReader::new(io::stdin());
-    for line in f.lines() {
-        let out_bytes = process_line_ascii(&line.unwrap(), &ranged_pairs);
+        let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
 
         std::io::stdout().write(&out_bytes).unwrap();
     }
@@ -167,9 +162,9 @@ pub fn do_cut() {
     let ranged_pairs = merge_char_pairs(&char_pairs);
 
     if ascii_mode {
-        process_lines_ascii(&ranged_pairs);
+        process_lines(process_line_ascii, &ranged_pairs);
     } else {
-        process_lines_utf8(&ranged_pairs);
+        process_lines(process_line_utf8, &ranged_pairs);
     }
 }
 
