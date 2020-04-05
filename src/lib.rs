@@ -56,7 +56,7 @@ fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
         } else {
             let last_mut = ranged_pairs.last_mut().unwrap();
 
-            // Merge 2 sorted adjacent intervals whenever possible
+            // Merge 2 adjacently sorted intervals whenever possible
             if char_pair.0 - 1 > last_mut.1 {
                 ranged_pairs.push(char_pair.clone());
             } else {
