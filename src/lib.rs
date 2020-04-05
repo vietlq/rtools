@@ -8,19 +8,28 @@ use clap::{App, Arg};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn handle_pos_parse(s: &str) -> usize {
-    match s.parse::<usize>() {
-        Ok(n) => n,
-        Err(_) => std::usize::MAX,
-    }
-}
-
 fn char_part_to_pair(char_part: &str) -> (usize, usize) {
-    let positions: Vec<usize> = char_part.split("-").map(|s| handle_pos_parse(s)).collect();
-    match positions.len() {
-        1 => (positions[0], positions[0]),
-        2 => (positions[0], positions[1]),
-        _ => panic!("Invalid input!"),
+    let str_pos: Vec<&str> = char_part.split("-").collect();
+
+    if str_pos.len() == 1 {
+        let start_pos = char_part.parse::<usize>().unwrap();
+        (start_pos, start_pos)
+    } else {
+        assert!(str_pos.len() == 2);
+
+        let start_pos = if str_pos[0].is_empty() {
+            1
+        } else {
+            str_pos[0].parse::<usize>().unwrap()
+        };
+
+        let end_pos = if str_pos[1].is_empty() {
+            std::usize::MAX
+        } else {
+            str_pos[1].parse::<usize>().unwrap()
+        };
+
+        (start_pos, end_pos)
     }
 }
 
@@ -108,5 +117,20 @@ pub fn do_cut() {
         */
 
         std::io::stdout().write("\n".as_bytes()).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_char_part_to_pair() {
+        assert!((char_part_to_pair("-") == (1, std::usize::MAX)));
+        assert!((char_part_to_pair("1") == (1, 1)));
+        assert!((char_part_to_pair("2") == (2, 2)));
+        assert!((char_part_to_pair("-20") == (1, 20)));
+        assert!((char_part_to_pair("20-") == (20, std::usize::MAX)));
+        assert!((char_part_to_pair("3-7") == (3, 7)));
     }
 }
