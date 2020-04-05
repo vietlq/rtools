@@ -46,22 +46,71 @@ fn extract_char_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
 }
 
 fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
-    let mut merged_pairs: Vec<(usize, usize)> = vec![];
+    let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
     for char_pair in char_pairs {
-        if merged_pairs.is_empty() {
-            merged_pairs.push(char_pair.clone());
+        if ranged_pairs.is_empty() {
+            ranged_pairs.push(char_pair.clone());
         } else {
-            let last_mut = merged_pairs.last_mut().unwrap();
+            let last_mut = ranged_pairs.last_mut().unwrap();
             if char_pair.0 <= last_mut.1 {
                 last_mut.1 = cmp::max(last_mut.1, char_pair.1);
             } else {
-                merged_pairs.push(char_pair.clone());
+                ranged_pairs.push(char_pair.clone());
             }
         }
     }
 
-    merged_pairs
+    ranged_pairs
+}
+
+fn process_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let uchars: Vec<char> = line.chars().collect();
+    let mut out_bytes: Vec<u8> = vec![];
+    let mut pair_idx: usize = 0;
+    let mut char_pos: usize = ranged_pairs[pair_idx].0;
+    let char_count = &uchars.len();
+    let pair_count = ranged_pairs.len();
+    let mut dst = [0; 8];
+
+    // Handle UTF-8
+    while char_pos <= *char_count && pair_idx < pair_count {
+        let (p1, p2) = ranged_pairs[pair_idx];
+        char_pos = cmp::max(p1, char_pos);
+
+        if char_pos <= *char_count {
+            out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
+        }
+
+        char_pos += 1;
+        if p2 < char_pos {
+            pair_idx += 1;
+        }
+    }
+
+    /*
+    // Handle ASCII only
+    for (p1, p2) in &ranged_pairs {
+        let len = &rline.len();
+        if *p1 > *len {
+            break;
+        }
+
+        // TODO: Handle UTF-8
+        // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+        // https://crates.io/crates/unicode-segmentation
+        let final_str = if *p2 < *len {
+            &rline[p1 - 1..*p2]
+        } else {
+            &rline[p1 - 1..]
+        };
+
+        out_bytes.extend(final_str.as_bytes());
+    }
+    */
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
 }
 
 pub fn do_cut() {
@@ -82,55 +131,13 @@ pub fn do_cut() {
 
     let char_pairs = extract_char_pairs(characters);
 
-    let merged_pairs = merge_char_pairs(&char_pairs);
+    let ranged_pairs = merge_char_pairs(&char_pairs);
 
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
-        let rline = line.unwrap();
-        let uchars: Vec<_> = rline.chars().collect();
-        let mut pair_idx: usize = 0;
-        let mut char_pos: usize = merged_pairs[pair_idx].0;
-        let char_count = &uchars.len();
-        let pair_count = merged_pairs.len();
-        let mut dst = [0; 8];
+        let out_bytes = process_line(&line.unwrap(), &ranged_pairs);
 
-        // Handle UTF-8
-        while char_pos <= *char_count && pair_idx < pair_count {
-            let (p1, p2) = merged_pairs[pair_idx];
-            char_pos = cmp::max(p1, char_pos);
-
-            if char_pos <= *char_count {
-                std::io::stdout()
-                    .write(&uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes())
-                    .unwrap();
-            }
-
-            char_pos += 1;
-            if p2 < char_pos {
-                pair_idx += 1;
-            }
-        }
-
-        /*
-        // Handle ASCII only
-        for (p1, p2) in &merged_pairs {
-            let len = &rline.len();
-            if *p1 > *len {
-                break;
-            }
-            // TODO: Handle UTF-8
-            // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
-            // https://crates.io/crates/unicode-segmentation
-            let final_str = if *p2 < *len {
-                &rline[p1 - 1..*p2]
-            } else {
-                &rline[p1 - 1..]
-            };
-            std::io::stdout().write(final_str.as_bytes()).unwrap();
-        }
-        */
-
-        std::io::stdout().write("\n".as_bytes()).unwrap();
+        std::io::stdout().write(&out_bytes).unwrap();
     }
 }
 
