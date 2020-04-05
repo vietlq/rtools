@@ -119,6 +119,7 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
 }
 
 // Use higher order function instead of repeating the logic
+// https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
 fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
 where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
