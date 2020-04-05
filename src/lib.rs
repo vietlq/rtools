@@ -37,7 +37,7 @@ fn extract_char_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
     let mut char_pairs: Vec<(usize, usize)> = char_pairs_str
         .split(",")
         .map(|char_part| char_part_to_pair(char_part))
-        .filter(|(p1, p2)| p1 <= p2)
+        .filter(|(start_pos, end_pos)| start_pos <= end_pos)
         .collect();
 
     char_pairs.sort();
@@ -75,34 +75,34 @@ fn process_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
 
     // Handle UTF-8
     while char_pos <= *char_count && pair_idx < pair_count {
-        let (p1, p2) = ranged_pairs[pair_idx];
-        char_pos = cmp::max(p1, char_pos);
+        let (start_pos, end_pos) = ranged_pairs[pair_idx];
+        char_pos = cmp::max(start_pos, char_pos);
 
         if char_pos <= *char_count {
             out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
         }
 
         char_pos += 1;
-        if p2 < char_pos {
+        if end_pos < char_pos {
             pair_idx += 1;
         }
     }
 
     /*
     // Handle ASCII only
-    for (p1, p2) in &ranged_pairs {
+    for (start_pos, end_pos) in &ranged_pairs {
         let len = &rline.len();
-        if *p1 > *len {
+        if *start_pos > *len {
             break;
         }
 
         // TODO: Handle UTF-8
         // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
         // https://crates.io/crates/unicode-segmentation
-        let final_str = if *p2 < *len {
-            &rline[p1 - 1..*p2]
+        let final_str = if *end_pos < *len {
+            &rline[start_pos - 1..*end_pos]
         } else {
-            &rline[p1 - 1..]
+            &rline[start_pos - 1..]
         };
 
         out_bytes.extend(final_str.as_bytes());
