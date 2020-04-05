@@ -125,12 +125,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_valid_char_part_to_pair() {
-        assert!((char_part_to_pair("-") == (1, std::usize::MAX)));
-        assert!((char_part_to_pair("1") == (1, 1)));
-        assert!((char_part_to_pair("2") == (2, 2)));
-        assert!((char_part_to_pair("-20") == (1, 20)));
-        assert!((char_part_to_pair("20-") == (20, std::usize::MAX)));
-        assert!((char_part_to_pair("3-7") == (3, 7)));
+    fn test_char_part_to_pair_valid_inputs() {
+        assert_eq!(char_part_to_pair("-"), (1, std::usize::MAX));
+        assert_eq!(char_part_to_pair("1"), (1, 1));
+        assert_eq!(char_part_to_pair("2"), (2, 2));
+        assert_eq!(char_part_to_pair("-20"), (1, 20));
+        assert_eq!(char_part_to_pair("20-"), (20, std::usize::MAX));
+        assert_eq!(char_part_to_pair("3-7"), (3, 7));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_char_part_to_pair_empty_input() {
+        char_part_to_pair("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_char_part_to_pair_invalid_char() {
+        char_part_to_pair(";");
     }
 }
