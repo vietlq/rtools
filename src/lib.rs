@@ -9,6 +9,8 @@ use clap::{App, Arg};
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn char_part_to_pair(char_part: &str) -> (usize, usize) {
+    assert!(char_part != "-", "invalid range with no endpoint: -");
+
     let str_pos: Vec<&str> = char_part.split("-").collect();
 
     if str_pos.len() == 1 {
@@ -178,7 +180,6 @@ mod tests {
 
     #[test]
     fn test_char_part_to_pair_valid_inputs() {
-        assert_eq!(char_part_to_pair("-"), (1, std::usize::MAX));
         assert_eq!(char_part_to_pair("1"), (1, 1));
         assert_eq!(char_part_to_pair("2"), (2, 2));
         assert_eq!(char_part_to_pair("-20"), (1, 20));
@@ -194,13 +195,18 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn test_char_part_to_pair_no_range() {
+        char_part_to_pair("-");
+    }
+
+    #[test]
+    #[should_panic]
     fn test_char_part_to_pair_invalid_char() {
         char_part_to_pair(";");
     }
 
     #[test]
     fn test_extract_char_pairs_basic_valid_inputs() {
-        assert_eq!(extract_char_pairs("-"), vec![(1, std::usize::MAX)]);
         assert_eq!(extract_char_pairs("1"), vec![(1, 1)]);
         assert_eq!(extract_char_pairs("1-8"), vec![(1, 8)]);
         assert_eq!(extract_char_pairs("5-9"), vec![(5, 9)]);
@@ -227,6 +233,13 @@ mod tests {
             extract_char_pairs("7,6-10,5-"),
             vec![(5, std::usize::MAX), (6, 10), (7, 7)]
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_extract_char_pairs_bad_inputs() {
+        extract_char_pairs("");
+        extract_char_pairs("-");
     }
 
     #[test]
