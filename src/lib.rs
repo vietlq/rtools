@@ -118,6 +118,24 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
     out_bytes
 }
 
+fn process_lines_utf8(ranged_pairs: &Vec<(usize, usize)>) {
+    let f = BufReader::new(io::stdin());
+    for line in f.lines() {
+        let out_bytes = process_line_utf8(&line.unwrap(), &ranged_pairs);
+
+        std::io::stdout().write(&out_bytes).unwrap();
+    }
+}
+
+fn process_lines_ascii(ranged_pairs: &Vec<(usize, usize)>) {
+    let f = BufReader::new(io::stdin());
+    for line in f.lines() {
+        let out_bytes = process_line_ascii(&line.unwrap(), &ranged_pairs);
+
+        std::io::stdout().write(&out_bytes).unwrap();
+    }
+}
+
 pub fn do_cut() {
     let matches = App::new("rcut")
         .version(VERSION)
@@ -131,18 +149,27 @@ pub fn do_cut() {
                 .help("select only these characters")
                 .required(true),
         )
+        .arg(
+            Arg::with_name("ascii")
+                .short("a")
+                .long("ascii")
+                .help("turn on ASCII mode (the default mode is UTF-8)")
+                .required(false)
+                .takes_value(false),
+        )
         .get_matches();
+
     let characters = matches.value_of("characters").unwrap();
+    let ascii_mode = matches.is_present("ascii");
 
     let char_pairs = extract_char_pairs(characters);
 
     let ranged_pairs = merge_char_pairs(&char_pairs);
 
-    let f = BufReader::new(io::stdin());
-    for line in f.lines() {
-        let out_bytes = process_line_utf8(&line.unwrap(), &ranged_pairs);
-
-        std::io::stdout().write(&out_bytes).unwrap();
+    if ascii_mode {
+        process_lines_ascii(&ranged_pairs);
+    } else {
+        process_lines_utf8(&ranged_pairs);
     }
 }
 
