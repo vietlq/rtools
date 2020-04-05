@@ -33,6 +33,37 @@ fn char_part_to_pair(char_part: &str) -> (usize, usize) {
     }
 }
 
+fn extract_char_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
+    let mut char_pairs: Vec<(usize, usize)> = char_pairs_str
+        .split(",")
+        .map(|char_part| char_part_to_pair(char_part))
+        .filter(|(p1, p2)| p1 <= p2)
+        .collect();
+
+    char_pairs.sort();
+
+    char_pairs
+}
+
+fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+    let mut merged_pairs: Vec<(usize, usize)> = vec![];
+
+    for char_pair in char_pairs {
+        if merged_pairs.is_empty() {
+            merged_pairs.push(char_pair.clone());
+        } else {
+            let last_mut = merged_pairs.last_mut().unwrap();
+            if char_pair.0 <= last_mut.1 {
+                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
+            } else {
+                merged_pairs.push(char_pair.clone());
+            }
+        }
+    }
+
+    merged_pairs
+}
+
 pub fn do_cut() {
     let matches = App::new("rcut")
         .version(VERSION)
@@ -49,26 +80,9 @@ pub fn do_cut() {
         .get_matches();
     let characters = matches.value_of("characters").unwrap();
 
-    let mut char_pairs: Vec<(usize, usize)> = characters
-        .split(",")
-        .map(|char_part| char_part_to_pair(char_part))
-        .filter(|(p1, p2)| p1 <= p2)
-        .collect();
-    char_pairs.sort();
+    let char_pairs = extract_char_pairs(characters);
 
-    let mut merged_pairs: Vec<(usize, usize)> = vec![];
-    for char_pair in &char_pairs {
-        if merged_pairs.is_empty() {
-            merged_pairs.push(char_pair.clone());
-        } else {
-            let last_mut = merged_pairs.last_mut().unwrap();
-            if char_pair.0 <= last_mut.1 {
-                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
-            } else {
-                merged_pairs.push(char_pair.clone());
-            }
-        }
-    }
+    let merged_pairs = merge_char_pairs(&char_pairs);
 
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
