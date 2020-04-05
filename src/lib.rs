@@ -53,10 +53,12 @@ fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
             ranged_pairs.push(char_pair.clone());
         } else {
             let last_mut = ranged_pairs.last_mut().unwrap();
-            if char_pair.0 <= last_mut.1 {
-                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
-            } else {
+
+            // Merge 2 sorted adjacent intervals whenever possible
+            if char_pair.0 - 1 > last_mut.1 {
                 ranged_pairs.push(char_pair.clone());
+            } else {
+                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
             }
         }
     }
@@ -119,6 +121,7 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
 }
 
 // Use higher order function instead of repeating the logic
+// https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
 // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
 fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
 where
@@ -193,5 +196,68 @@ mod tests {
     #[should_panic]
     fn test_char_part_to_pair_invalid_char() {
         char_part_to_pair(";");
+    }
+
+    #[test]
+    fn test_extract_char_pairs_basic_valid_inputs() {
+        assert_eq!(extract_char_pairs("-"), vec![(1, std::usize::MAX)]);
+        assert_eq!(extract_char_pairs("1"), vec![(1, 1)]);
+        assert_eq!(extract_char_pairs("1-8"), vec![(1, 8)]);
+        assert_eq!(extract_char_pairs("5-9"), vec![(5, 9)]);
+        assert_eq!(extract_char_pairs("9-5"), vec![]);
+        assert_eq!(extract_char_pairs("-5"), vec![(1, 5)]);
+        assert_eq!(extract_char_pairs("5-"), vec![(5, std::usize::MAX)]);
+    }
+
+    #[test]
+    fn test_extract_char_pairs_ensure_sorting() {
+        assert_eq!(
+            extract_char_pairs("3,4,5-"),
+            vec![(3, 3), (4, 4), (5, std::usize::MAX)]
+        );
+        assert_eq!(
+            extract_char_pairs("5-,3,4"),
+            vec![(3, 3), (4, 4), (5, std::usize::MAX)]
+        );
+        assert_eq!(
+            extract_char_pairs("6-10,5-"),
+            vec![(5, std::usize::MAX), (6, 10)]
+        );
+        assert_eq!(
+            extract_char_pairs("7,6-10,5-"),
+            vec![(5, std::usize::MAX), (6, 10), (7, 7)]
+        );
+    }
+
+    #[test]
+    fn test_merge_char_pairs() {
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3,4,5-")),
+            vec![(3, std::usize::MAX)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3-4,5-")),
+            vec![(3, std::usize::MAX)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3-5,5-")),
+            vec![(3, std::usize::MAX)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3-6,5-")),
+            vec![(3, std::usize::MAX)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("7,6-10,5-")),
+            vec![(5, std::usize::MAX)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3-7,8,2-10,12-20")),
+            vec![(2, 10), (12, 20)]
+        );
+        assert_eq!(
+            merge_char_pairs(&extract_char_pairs("3-7,8,2-10,11-20")),
+            vec![(2, 20)]
+        );
     }
 }
