@@ -74,6 +74,8 @@ fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> 
     let mut dst = [0; 8];
 
     // Handle UTF-8
+    // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+    // https://crates.io/crates/unicode-segmentation
     while char_pos <= *char_count && pair_idx < pair_count {
         let (start_pos, end_pos) = ranged_pairs[pair_idx];
         char_pos = cmp::max(start_pos, char_pos);
@@ -102,9 +104,7 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
             break;
         }
 
-        // TODO: Handle UTF-8
-        // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
-        // https://crates.io/crates/unicode-segmentation
+        // NOTE: This will panic if multi-byte characters are present
         let final_str = if *end_pos < *len {
             &line[start_pos - 1..*end_pos]
         } else {
