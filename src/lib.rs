@@ -178,7 +178,7 @@ pub fn run() {
         )
         .arg(
             Arg::with_name("files")
-                .help("list of files; if empty then STDIN will be used")
+                .help("the content of these files will be used; if empty then STDIN will be used")
                 .required(false)
                 .multiple(true),
         )
