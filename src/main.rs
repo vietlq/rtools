@@ -1,5 +1,5 @@
-use rcut::do_cut;
+use rcut;
 
 fn main() {
-    do_cut()
+    rcut::run()
 }

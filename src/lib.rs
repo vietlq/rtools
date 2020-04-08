@@ -1,3 +1,8 @@
+//! `rcut` is a Rust replacement for GNU cut that supports UTF-8.
+//! Implementation details are exported for reusability in case users
+//! are interested in building their own char/word cutter.
+//!
+
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::{cmp, io, str};
@@ -7,10 +12,10 @@ extern crate clap;
 use clap::{App, Arg};
 
 /// Cargo version specified in the Cargo.toml file
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 /// Extract ranged pair from patterns "(\d+-|-\d+|\d+-\d+)"
-fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
+pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
     assert!(char_part != "-", "invalid range with no endpoint: -");
 
     let str_pos: Vec<&str> = char_part.split("-").collect();
@@ -38,7 +43,7 @@ fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
 }
 
 /// Extract list of comma-separated ranged pairs
-fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
+pub fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
     let mut char_pairs: Vec<(usize, usize)> = char_pairs_str
         .split(",")
         .map(|char_part| str_to_ranged_pair(char_part))
@@ -51,7 +56,7 @@ fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
 }
 
 /// Merge range pairs that have adjacent or overlapping boundaries
-fn merge_ranged_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+pub fn merge_ranged_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
     for char_pair in char_pairs {
@@ -73,7 +78,7 @@ fn merge_ranged_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
 }
 
 /// Extract parts of a UTF-8 encoded line
-fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+pub fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
     let mut pair_idx: usize = 0;
@@ -104,7 +109,7 @@ fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> 
 }
 
 /// Extract parts of an ASCII encoded line
-fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
 
     // Handle ASCII only
@@ -129,7 +134,7 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
 }
 
 /// Generic line processor that delegates to concrete line processors
-fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
+pub fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
 where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
 {
@@ -145,7 +150,7 @@ where
 }
 
 /// Perform operations similar to GNU cut
-pub fn do_cut() {
+pub fn run() {
     let matches = App::new("rcut")
         .version(VERSION)
         .about("Replacement for GNU cut. Written in Rust.")
