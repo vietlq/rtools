@@ -12,7 +12,12 @@ extern crate clap;
 use clap::{App, Arg};
 
 /// Cargo version specified in the Cargo.toml file
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+/// Cargo version specified in the Cargo.toml file
+pub fn version() -> &'static str {
+    VERSION
+}
 
 /// Extract ranged pair from patterns "(\d+-|-\d+|\d+-\d+)"
 pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
@@ -152,7 +157,7 @@ where
 /// Perform operations similar to GNU cut
 pub fn run() {
     let matches = App::new("rcut")
-        .version(VERSION)
+        .version(version())
         .about("Replacement for GNU cut. Written in Rust.")
         .author("Viet Le")
         .arg(
@@ -219,6 +224,18 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn test_str_to_ranged_pair_space() {
+        str_to_ranged_pair(" ");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_str_to_ranged_pair_tab() {
+        str_to_ranged_pair("\t");
+    }
+
+    #[test]
     fn test_extract_ranged_pairs_basic_valid_inputs() {
         assert_eq!(extract_ranged_pairs("1"), vec![(1, 1)]);
         assert_eq!(extract_ranged_pairs("1-8"), vec![(1, 8)]);
@@ -250,8 +267,13 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_extract_ranged_pairs_bad_inputs() {
+    fn test_extract_ranged_pairs_empty() {
         extract_ranged_pairs("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_extract_ranged_pairs_bad_range() {
         extract_ranged_pairs("-");
     }
 
