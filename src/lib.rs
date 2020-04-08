@@ -6,9 +6,11 @@ extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
 use clap::{App, Arg};
 
+/// Cargo version specified in the Cargo.toml file
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn char_part_to_pair(char_part: &str) -> (usize, usize) {
+/// Extract ranged pair from patterns "(\d+-|-\d+|\d+-\d+)"
+fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
     assert!(char_part != "-", "invalid range with no endpoint: -");
 
     let str_pos: Vec<&str> = char_part.split("-").collect();
@@ -35,10 +37,11 @@ fn char_part_to_pair(char_part: &str) -> (usize, usize) {
     }
 }
 
-fn extract_char_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
+/// Extract list of comma-separated ranged pairs
+fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
     let mut char_pairs: Vec<(usize, usize)> = char_pairs_str
         .split(",")
-        .map(|char_part| char_part_to_pair(char_part))
+        .map(|char_part| str_to_ranged_pair(char_part))
         .filter(|(start_pos, end_pos)| start_pos <= end_pos)
         .collect();
 
@@ -47,7 +50,8 @@ fn extract_char_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
     char_pairs
 }
 
-fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+/// Merge range pairs that have adjacent or overlapping boundaries
+fn merge_ranged_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
     for char_pair in char_pairs {
@@ -68,6 +72,7 @@ fn merge_char_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     ranged_pairs
 }
 
+/// Extract parts of a UTF-8 encoded line
 fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
@@ -98,6 +103,7 @@ fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> 
     out_bytes
 }
 
+/// Extract parts of an ASCII encoded line
 fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
 
@@ -122,13 +128,14 @@ fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>
     out_bytes
 }
 
-// Use higher order function instead of repeating the logic
-// https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
-// https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
+/// Generic line processor that delegates to concrete line processors
 fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
 where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
 {
+    // Use higher order function instead of repeating the logic
+    // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
+    // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
     let f = BufReader::new(io::stdin());
     for line in f.lines() {
         let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
@@ -137,6 +144,7 @@ where
     }
 }
 
+/// Perform operations similar to GNU cut
 pub fn do_cut() {
     let matches = App::new("rcut")
         .version(VERSION)
@@ -163,9 +171,9 @@ pub fn do_cut() {
     let characters = matches.value_of("characters").unwrap();
     let ascii_mode = matches.is_present("ascii");
 
-    let char_pairs = extract_char_pairs(characters);
+    let char_pairs = extract_ranged_pairs(characters);
 
-    let ranged_pairs = merge_char_pairs(&char_pairs);
+    let ranged_pairs = merge_ranged_pairs(&char_pairs);
 
     if ascii_mode {
         process_lines(process_line_ascii, &ranged_pairs);
@@ -179,97 +187,97 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_char_part_to_pair_valid_inputs() {
-        assert_eq!(char_part_to_pair("1"), (1, 1));
-        assert_eq!(char_part_to_pair("2"), (2, 2));
-        assert_eq!(char_part_to_pair("-20"), (1, 20));
-        assert_eq!(char_part_to_pair("20-"), (20, std::usize::MAX));
-        assert_eq!(char_part_to_pair("3-7"), (3, 7));
+    fn test_str_to_ranged_pair_valid_inputs() {
+        assert_eq!(str_to_ranged_pair("1"), (1, 1));
+        assert_eq!(str_to_ranged_pair("2"), (2, 2));
+        assert_eq!(str_to_ranged_pair("-20"), (1, 20));
+        assert_eq!(str_to_ranged_pair("20-"), (20, std::usize::MAX));
+        assert_eq!(str_to_ranged_pair("3-7"), (3, 7));
     }
 
     #[test]
     #[should_panic]
-    fn test_char_part_to_pair_empty_input() {
-        char_part_to_pair("");
+    fn test_str_to_ranged_pair_empty_input() {
+        str_to_ranged_pair("");
     }
 
     #[test]
     #[should_panic]
-    fn test_char_part_to_pair_no_range() {
-        char_part_to_pair("-");
+    fn test_str_to_ranged_pair_no_range() {
+        str_to_ranged_pair("-");
     }
 
     #[test]
     #[should_panic]
-    fn test_char_part_to_pair_invalid_char() {
-        char_part_to_pair(";");
+    fn test_str_to_ranged_pair_invalid_char() {
+        str_to_ranged_pair(";");
     }
 
     #[test]
-    fn test_extract_char_pairs_basic_valid_inputs() {
-        assert_eq!(extract_char_pairs("1"), vec![(1, 1)]);
-        assert_eq!(extract_char_pairs("1-8"), vec![(1, 8)]);
-        assert_eq!(extract_char_pairs("5-9"), vec![(5, 9)]);
-        assert_eq!(extract_char_pairs("9-5"), vec![]);
-        assert_eq!(extract_char_pairs("-5"), vec![(1, 5)]);
-        assert_eq!(extract_char_pairs("5-"), vec![(5, std::usize::MAX)]);
+    fn test_extract_ranged_pairs_basic_valid_inputs() {
+        assert_eq!(extract_ranged_pairs("1"), vec![(1, 1)]);
+        assert_eq!(extract_ranged_pairs("1-8"), vec![(1, 8)]);
+        assert_eq!(extract_ranged_pairs("5-9"), vec![(5, 9)]);
+        assert_eq!(extract_ranged_pairs("9-5"), vec![]);
+        assert_eq!(extract_ranged_pairs("-5"), vec![(1, 5)]);
+        assert_eq!(extract_ranged_pairs("5-"), vec![(5, std::usize::MAX)]);
     }
 
     #[test]
-    fn test_extract_char_pairs_ensure_sorting() {
+    fn test_extract_ranged_pairs_ensure_sorting() {
         assert_eq!(
-            extract_char_pairs("3,4,5-"),
+            extract_ranged_pairs("3,4,5-"),
             vec![(3, 3), (4, 4), (5, std::usize::MAX)]
         );
         assert_eq!(
-            extract_char_pairs("5-,3,4"),
+            extract_ranged_pairs("5-,3,4"),
             vec![(3, 3), (4, 4), (5, std::usize::MAX)]
         );
         assert_eq!(
-            extract_char_pairs("6-10,5-"),
+            extract_ranged_pairs("6-10,5-"),
             vec![(5, std::usize::MAX), (6, 10)]
         );
         assert_eq!(
-            extract_char_pairs("7,6-10,5-"),
+            extract_ranged_pairs("7,6-10,5-"),
             vec![(5, std::usize::MAX), (6, 10), (7, 7)]
         );
     }
 
     #[test]
     #[should_panic]
-    fn test_extract_char_pairs_bad_inputs() {
-        extract_char_pairs("");
-        extract_char_pairs("-");
+    fn test_extract_ranged_pairs_bad_inputs() {
+        extract_ranged_pairs("");
+        extract_ranged_pairs("-");
     }
 
     #[test]
-    fn test_merge_char_pairs() {
+    fn test_merge_ranged_pairs() {
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3,4,5-")),
+            merge_ranged_pairs(&extract_ranged_pairs("3,4,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3-4,5-")),
+            merge_ranged_pairs(&extract_ranged_pairs("3-4,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3-5,5-")),
+            merge_ranged_pairs(&extract_ranged_pairs("3-5,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3-6,5-")),
+            merge_ranged_pairs(&extract_ranged_pairs("3-6,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("7,6-10,5-")),
+            merge_ranged_pairs(&extract_ranged_pairs("7,6-10,5-")),
             vec![(5, std::usize::MAX)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3-7,8,2-10,12-20")),
+            merge_ranged_pairs(&extract_ranged_pairs("3-7,8,2-10,12-20")),
             vec![(2, 10), (12, 20)]
         );
         assert_eq!(
-            merge_char_pairs(&extract_char_pairs("3-7,8,2-10,11-20")),
+            merge_ranged_pairs(&extract_ranged_pairs("3-7,8,2-10,11-20")),
             vec![(2, 20)]
         );
     }
