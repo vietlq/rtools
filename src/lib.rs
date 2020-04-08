@@ -58,7 +58,7 @@ pub fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
     char_pairs
 }
 
-/// Sort and merge ranged pairs that have adjacent or overlapping boundaries
+/// Sort ranged pairs and merge those having adjacent or overlapping boundaries
 pub fn merge_ranged_pairs(mut char_pairs: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
