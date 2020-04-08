@@ -19,7 +19,7 @@ pub fn version() -> &'static str {
     VERSION
 }
 
-/// Extract ranged pair from patterns "(\d+-|-\d+|\d+-\d+)"
+/// Extract ranged pair having the pattern `(\d+-|-\d+|\d+-\d+)`
 pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
     assert!(char_part != "-", "invalid range with no endpoint: -");
 
@@ -49,22 +49,22 @@ pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
 
 /// Extract list of comma-separated ranged pairs
 pub fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
-    let mut char_pairs: Vec<(usize, usize)> = char_pairs_str
+    let char_pairs: Vec<(usize, usize)> = char_pairs_str
         .split(",")
         .map(|char_part| str_to_ranged_pair(char_part))
         .filter(|(start_pos, end_pos)| start_pos <= end_pos)
         .collect();
 
-    char_pairs.sort();
-
     char_pairs
 }
 
-/// Merge range pairs that have adjacent or overlapping boundaries
-pub fn merge_ranged_pairs(char_pairs: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+/// Sort and merge ranged pairs that have adjacent or overlapping boundaries
+pub fn merge_ranged_pairs(mut char_pairs: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
-    for char_pair in char_pairs {
+    char_pairs.sort();
+
+    for char_pair in &char_pairs {
         if ranged_pairs.is_empty() {
             ranged_pairs.push(char_pair.clone());
         } else {
@@ -183,7 +183,7 @@ pub fn run() {
 
     let char_pairs = extract_ranged_pairs(characters);
 
-    let ranged_pairs = merge_ranged_pairs(&char_pairs);
+    let ranged_pairs = merge_ranged_pairs(char_pairs);
 
     if ascii_mode {
         process_lines(process_line_ascii, &ranged_pairs);
@@ -246,22 +246,22 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_ranged_pairs_ensure_sorting() {
+    fn test_extract_ranged_pairs_ensure_no_sorting() {
         assert_eq!(
             extract_ranged_pairs("3,4,5-"),
             vec![(3, 3), (4, 4), (5, std::usize::MAX)]
         );
         assert_eq!(
             extract_ranged_pairs("5-,3,4"),
-            vec![(3, 3), (4, 4), (5, std::usize::MAX)]
+            vec![(5, std::usize::MAX), (3, 3), (4, 4)]
         );
         assert_eq!(
             extract_ranged_pairs("6-10,5-"),
-            vec![(5, std::usize::MAX), (6, 10)]
+            vec![(6, 10), (5, std::usize::MAX)]
         );
         assert_eq!(
             extract_ranged_pairs("7,6-10,5-"),
-            vec![(5, std::usize::MAX), (6, 10), (7, 7)]
+            vec![(7, 7), (6, 10), (5, std::usize::MAX)]
         );
     }
 
@@ -280,31 +280,31 @@ mod tests {
     #[test]
     fn test_merge_ranged_pairs() {
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3,4,5-")),
+            merge_ranged_pairs(extract_ranged_pairs("3,4,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3-4,5-")),
+            merge_ranged_pairs(extract_ranged_pairs("3-4,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3-5,5-")),
+            merge_ranged_pairs(extract_ranged_pairs("3-5,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3-6,5-")),
+            merge_ranged_pairs(extract_ranged_pairs("3-6,5-")),
             vec![(3, std::usize::MAX)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("7,6-10,5-")),
+            merge_ranged_pairs(extract_ranged_pairs("7,6-10,5-")),
             vec![(5, std::usize::MAX)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3-7,8,2-10,12-20")),
+            merge_ranged_pairs(extract_ranged_pairs("3-7,8,2-10,12-20")),
             vec![(2, 10), (12, 20)]
         );
         assert_eq!(
-            merge_ranged_pairs(&extract_ranged_pairs("3-7,8,2-10,11-20")),
+            merge_ranged_pairs(extract_ranged_pairs("3-7,8,2-10,11-20")),
             vec![(2, 20)]
         );
     }
