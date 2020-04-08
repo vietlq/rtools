@@ -165,7 +165,10 @@ pub fn run() {
                 .short("c")
                 .long("characters")
                 .value_name("LIST")
-                .help("select only these characters")
+                .help("select only these ranges of characters\n\
+                       ranges are comma-separated\n\
+                       sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8")
+                .next_line_help(true)
                 .required(true),
         )
         .arg(
@@ -178,8 +181,8 @@ pub fn run() {
         )
         .arg(
             Arg::with_name("files")
-                .help("the content of these files will be used;\n\
-                       if empty then STDIN will be used")
+                .help("the content of these files will be used\n\
+                       if no file given, STDIN will be used")
                 .next_line_help(true)
                 .required(false)
                 .multiple(true),
