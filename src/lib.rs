@@ -176,10 +176,19 @@ pub fn run() {
                 .required(false)
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("files")
+                .help("list of files; if empty then STDIN will be used")
+                .required(false)
+                .multiple(true),
+        )
         .get_matches();
 
     let characters = matches.value_of("characters").unwrap();
     let ascii_mode = matches.is_present("ascii");
+    let files = matches.value_of("files");
+
+    println!("files = {:?}", files);
 
     let char_pairs = extract_ranged_pairs(characters);
 
