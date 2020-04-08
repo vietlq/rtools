@@ -6,7 +6,7 @@ Print usage with `rcut -h`:
 
 ```
 USAGE:
-    rcut [FLAGS] --characters <LIST>
+    rcut [FLAGS] --characters <LIST> [files]...
 
 FLAGS:
     -a, --ascii      turn on ASCII mode (the default mode is UTF-8)
@@ -14,7 +14,15 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -c, --characters <LIST>    select only these characters
+    -c, --characters <LIST>
+            select only these ranges of characters
+            ranges are comma-separated
+            sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8
+
+ARGS:
+    <files>...
+            the content of these files will be used
+            if no file given, STDIN will be used
 ```
 
 Examples:
