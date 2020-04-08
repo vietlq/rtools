@@ -1,11 +1,12 @@
 [package]
 name = "rcut"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 description = "rcut is a Rust replacement for GNU cut that supports UTF-8."
 license = "MIT/Apache-2.0"
 repository = "https://github.com/vietlq/rcut"
+readme = "README.md"
 include = [
     "src/*.rs",
     "Cargo.toml"
