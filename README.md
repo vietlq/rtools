@@ -29,8 +29,16 @@ Examples:
 
 ```
 # UTF-8 mode (default):
+## Read from STDIN
 rcut -c 3-6,10,12-15 < /usr/share/dict/words
 
+## Read from files
+rcut -c 3-6,10,12-15 file1 file2 file2
+
 # ASCII mode:
+## Read from STDIN
 rcut -a -c 3-6,10,12-15 < /usr/share/dict/words
+
+## Read from files
+rcut -a -c 3-6,10,12-15 file1 file2 file2
 ```
