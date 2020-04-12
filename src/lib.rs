@@ -252,7 +252,12 @@ pub fn run() {
             Arg::with_name("no-merge")
                 .short("N")
                 .long("no-merge")
-                .help("Do not sort and merge ranges. Sort and merge by default.")
+                .help(
+                    "Do not sort and merge ranges.\n\
+                    Think of it as cut-n-paste.\n\
+                    Sort and merge by default.",
+                )
+                .next_line_help(true)
                 .required(false)
                 .takes_value(false),
         )

@@ -9,9 +9,13 @@ USAGE:
     rcut [FLAGS] --characters <LIST> [files]...
 
 FLAGS:
-    -a, --ascii      Turn on ASCII mode (the default mode is UTF-8)
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -a, --ascii       Turn on ASCII mode (the default mode is UTF-8).
+    -h, --help        Prints help information
+    -N, --no-merge
+            Do not sort and merge ranges.
+            Think of it as cut-n-paste.
+            Sort and merge by default.
+    -V, --version     Prints version information
 
 OPTIONS:
     -c, --characters <LIST>
