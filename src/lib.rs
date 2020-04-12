@@ -49,33 +49,33 @@ pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
 }
 
 /// Extract list of comma-separated ranged pairs
-pub fn extract_ranged_pairs(char_pairs_str: &str) -> Vec<(usize, usize)> {
-    let char_pairs: Vec<(usize, usize)> = char_pairs_str
+pub fn extract_ranged_pairs(ranged_pairs_str: &str) -> Vec<(usize, usize)> {
+    let unsorted_ranged_pairs: Vec<(usize, usize)> = ranged_pairs_str
         .split(",")
         .map(|char_part| str_to_ranged_pair(char_part))
         .filter(|(start_pos, end_pos)| start_pos <= end_pos)
         .collect();
 
-    char_pairs
+    unsorted_ranged_pairs
 }
 
 /// Sort ranged pairs and merge those having adjacent or overlapping boundaries
-pub fn merge_ranged_pairs(mut char_pairs: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
-    char_pairs.sort();
+    unsorted_ranged_pairs.sort();
 
-    for char_pair in &char_pairs {
+    for ranged_pair in &unsorted_ranged_pairs {
         if ranged_pairs.is_empty() {
-            ranged_pairs.push(char_pair.clone());
+            ranged_pairs.push(ranged_pair.clone());
         } else {
             let last_mut = ranged_pairs.last_mut().unwrap();
 
             // Merge 2 adjacently sorted intervals whenever possible
-            if char_pair.0 - 1 > last_mut.1 {
-                ranged_pairs.push(char_pair.clone());
+            if ranged_pair.0 - 1 > last_mut.1 {
+                ranged_pairs.push(ranged_pair.clone());
             } else {
-                last_mut.1 = cmp::max(last_mut.1, char_pair.1);
+                last_mut.1 = cmp::max(last_mut.1, ranged_pair.1);
             }
         }
     }
@@ -168,11 +168,7 @@ impl std::io::Read for Readable {
 }
 
 /// Process readable object: Send it via rcut pipeline
-pub fn process_readable(
-    readable: Readable,
-    ascii_mode: bool,
-    ranged_pairs: &Vec<(usize, usize)>,
-) {
+pub fn process_readable(readable: Readable, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
     if ascii_mode {
         process_lines(readable, process_line_ascii, ranged_pairs);
     } else {
@@ -196,11 +192,8 @@ pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(us
 }
 
 /// Generic line processor that delegates to concrete line processors
-pub fn process_lines<F>(
-    input: Readable,
-    line_processor_fn: F,
-    ranged_pairs: &Vec<(usize, usize)>,
-) where
+pub fn process_lines<F>(input: Readable, line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
+where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
 {
     // Use higher order function instead of repeating the logic
@@ -237,7 +230,15 @@ pub fn run() {
             Arg::with_name("ascii")
                 .short("a")
                 .long("ascii")
-                .help("Turn on ASCII mode (the default mode is UTF-8)")
+                .help("Turn on ASCII mode (the default mode is UTF-8).")
+                .required(false)
+                .takes_value(false),
+        )
+        .arg(
+            Arg::with_name("no-merge")
+                .short("N")
+                .long("no-merge")
+                .help("Do not sort and merge ranges. Sort and merge by default.")
                 .required(false)
                 .takes_value(false),
         )
@@ -255,12 +256,17 @@ pub fn run() {
 
     let characters = matches.value_of("characters").unwrap();
     let ascii_mode = matches.is_present("ascii");
+    let no_merge = matches.is_present("no-merge");
     // NOTE: Use `values_of` instead of `value_of`!!!!
     let files_it_opt = matches.values_of("files");
 
-    let char_pairs = extract_ranged_pairs(characters);
+    let unsorted_ranged_pairs = extract_ranged_pairs(characters);
 
-    let ranged_pairs = merge_ranged_pairs(char_pairs);
+    let ranged_pairs = if no_merge {
+        unsorted_ranged_pairs
+    } else {
+        merge_ranged_pairs(unsorted_ranged_pairs)
+    };
 
     let files = if files_it_opt.is_none() {
         vec![]
