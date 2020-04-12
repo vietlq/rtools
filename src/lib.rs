@@ -140,36 +140,36 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
 }
 
 /// Utility class to enable static dispatching for STDIN and files
-pub enum InnerReadable {
-    StdinType(std::io::Stdin),
-    FileType(std::fs::File),
+pub enum Readable {
+    Stdin(std::io::Stdin),
+    File(std::fs::File),
 }
 
 /// Utility methods to encapsulate STDIN/file for reading
-impl InnerReadable {
-    fn from_stdin() -> InnerReadable {
-        InnerReadable::StdinType(std::io::stdin())
+impl Readable {
+    fn from_stdin() -> Readable {
+        Readable::Stdin(std::io::stdin())
     }
 
-    fn from_file(file_name: &str) -> InnerReadable {
-        InnerReadable::FileType(File::open(file_name).unwrap())
+    fn from_file(file_name: &str) -> Readable {
+        Readable::File(File::open(file_name).unwrap())
     }
 }
 
 /// Implement std::io::Read by delegating read() to STDIN/file classes
-impl std::io::Read for InnerReadable {
+impl std::io::Read for Readable {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         // https://doc.rust-lang.org/std/io/type.Result.html
         match self {
-            InnerReadable::StdinType(inner_stdin) => inner_stdin.read(buf),
-            InnerReadable::FileType(inner_file) => inner_file.read(buf),
+            Readable::Stdin(inner_stdin) => inner_stdin.read(buf),
+            Readable::File(inner_file) => inner_file.read(buf),
         }
     }
 }
 
 /// Process readable object: Send it via rcut pipeline
 pub fn process_readable(
-    readable: InnerReadable,
+    readable: Readable,
     ascii_mode: bool,
     ranged_pairs: &Vec<(usize, usize)>,
 ) {
@@ -184,7 +184,7 @@ pub fn process_readable(
 pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
     for file in files {
         let result = std::panic::catch_unwind(|| {
-            process_readable(InnerReadable::from_file(file), ascii_mode, ranged_pairs);
+            process_readable(Readable::from_file(file), ascii_mode, ranged_pairs);
         });
         if result.is_err() {
             eprintln!(
@@ -197,7 +197,7 @@ pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(us
 
 /// Generic line processor that delegates to concrete line processors
 pub fn process_lines<F>(
-    input: InnerReadable,
+    input: Readable,
     line_processor_fn: F,
     ranged_pairs: &Vec<(usize, usize)>,
 ) where
@@ -269,7 +269,7 @@ pub fn run() {
     };
 
     if files.is_empty() {
-        process_readable(InnerReadable::from_stdin(), ascii_mode, &ranged_pairs);
+        process_readable(Readable::from_stdin(), ascii_mode, &ranged_pairs);
     } else {
         process_files(&files, ascii_mode, &ranged_pairs);
     }
