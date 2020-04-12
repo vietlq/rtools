@@ -139,11 +139,13 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
     out_bytes
 }
 
+/// Utility class to enable static dispatching for STDIN and files
 pub enum InnerReadable {
     StdinType(std::io::Stdin),
     FileType(std::fs::File),
 }
 
+/// Utility methods to encapsulate STDIN/file for reading
 impl InnerReadable {
     fn from_stdin() -> InnerReadable {
         InnerReadable::StdinType(std::io::stdin())
@@ -154,12 +156,41 @@ impl InnerReadable {
     }
 }
 
-// https://doc.rust-lang.org/std/io/type.Result.html
+/// Implement std::io::Read by delegating read() to STDIN/file classes
 impl std::io::Read for InnerReadable {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
+        // https://doc.rust-lang.org/std/io/type.Result.html
         match self {
             InnerReadable::StdinType(inner_stdin) => inner_stdin.read(buf),
             InnerReadable::FileType(inner_file) => inner_file.read(buf),
+        }
+    }
+}
+
+/// Process readable object: Send it via rcut pipeline
+pub fn process_readable(
+    readable: InnerReadable,
+    ascii_mode: bool,
+    ranged_pairs: &Vec<(usize, usize)>,
+) {
+    if ascii_mode {
+        process_lines(readable, process_line_ascii, ranged_pairs);
+    } else {
+        process_lines(readable, process_line_utf8, ranged_pairs);
+    }
+}
+
+/// Process files: Send them via rcut pipeline
+pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
+    for file in files {
+        let result = std::panic::catch_unwind(|| {
+            process_readable(InnerReadable::from_file(file), ascii_mode, ranged_pairs);
+        });
+        if result.is_err() {
+            eprintln!(
+                "An error occurred when processing given file name `{}`: {:?}",
+                file, result
+            );
         }
     }
 }
@@ -195,9 +226,9 @@ pub fn run() {
                 .long("characters")
                 .value_name("LIST")
                 .help(
-                    "select only these ranges of characters\n\
-                       ranges are comma-separated\n\
-                       sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8",
+                    "Select only these ranges of characters.\n\
+                       Ranges are comma-separated.\n\
+                       Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.",
                 )
                 .next_line_help(true)
                 .required(true),
@@ -206,15 +237,15 @@ pub fn run() {
             Arg::with_name("ascii")
                 .short("a")
                 .long("ascii")
-                .help("turn on ASCII mode (the default mode is UTF-8)")
+                .help("Turn on ASCII mode (the default mode is UTF-8)")
                 .required(false)
                 .takes_value(false),
         )
         .arg(
             Arg::with_name("files")
                 .help(
-                    "the content of these files will be used\n\
-                       if no file given, STDIN will be used",
+                    "The content of these files will be used.\n\
+                     If no files given, STDIN will be used.",
                 )
                 .next_line_help(true)
                 .required(false)
@@ -224,26 +255,23 @@ pub fn run() {
 
     let characters = matches.value_of("characters").unwrap();
     let ascii_mode = matches.is_present("ascii");
-    let files = matches.value_of("files");
-
-    println!("files = {:?}", files);
+    // NOTE: Use `values_of` instead of `value_of`!!!!
+    let files_it_opt = matches.values_of("files");
 
     let char_pairs = extract_ranged_pairs(characters);
 
     let ranged_pairs = merge_ranged_pairs(char_pairs);
 
-    if ascii_mode {
-        process_lines(
-            InnerReadable::from_stdin(),
-            process_line_ascii,
-            &ranged_pairs,
-        );
+    let files = if files_it_opt.is_none() {
+        vec![]
     } else {
-        process_lines(
-            InnerReadable::from_stdin(),
-            process_line_utf8,
-            &ranged_pairs,
-        );
+        files_it_opt.unwrap().collect()
+    };
+
+    if files.is_empty() {
+        process_readable(InnerReadable::from_stdin(), ascii_mode, &ranged_pairs);
+    } else {
+        process_files(&files, ascii_mode, &ranged_pairs);
     }
 }
 
