@@ -3,9 +3,10 @@
 //! are interested in building their own char/word cutter.
 //!
 
+use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::{cmp, io, str};
+use std::{cmp, str};
 
 extern crate clap;
 //use clap::{App, Arg, ArgGroup, SubCommand};
@@ -138,16 +139,44 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
     out_bytes
 }
 
+pub enum InnerReadable {
+    StdinType(std::io::Stdin),
+    FileType(std::fs::File),
+}
+
+impl InnerReadable {
+    fn from_stdin() -> InnerReadable {
+        InnerReadable::StdinType(std::io::stdin())
+    }
+
+    fn from_file(file_name: &str) -> InnerReadable {
+        InnerReadable::FileType(File::open(file_name).unwrap())
+    }
+}
+
+// https://doc.rust-lang.org/std/io/type.Result.html
+impl std::io::Read for InnerReadable {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
+        match self {
+            InnerReadable::StdinType(inner_stdin) => inner_stdin.read(buf),
+            InnerReadable::FileType(inner_file) => inner_file.read(buf),
+        }
+    }
+}
+
 /// Generic line processor that delegates to concrete line processors
-pub fn process_lines<F>(line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
-where
+pub fn process_lines<F>(
+    input: InnerReadable,
+    line_processor_fn: F,
+    ranged_pairs: &Vec<(usize, usize)>,
+) where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
 {
     // Use higher order function instead of repeating the logic
     // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
     // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
-    let f = BufReader::new(io::stdin());
-    for line in f.lines() {
+
+    for line in BufReader::new(input).lines() {
         let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
 
         std::io::stdout().write(&out_bytes).unwrap();
@@ -165,9 +194,11 @@ pub fn run() {
                 .short("c")
                 .long("characters")
                 .value_name("LIST")
-                .help("select only these ranges of characters\n\
+                .help(
+                    "select only these ranges of characters\n\
                        ranges are comma-separated\n\
-                       sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8")
+                       sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8",
+                )
                 .next_line_help(true)
                 .required(true),
         )
@@ -181,8 +212,10 @@ pub fn run() {
         )
         .arg(
             Arg::with_name("files")
-                .help("the content of these files will be used\n\
-                       if no file given, STDIN will be used")
+                .help(
+                    "the content of these files will be used\n\
+                       if no file given, STDIN will be used",
+                )
                 .next_line_help(true)
                 .required(false)
                 .multiple(true),
@@ -200,9 +233,17 @@ pub fn run() {
     let ranged_pairs = merge_ranged_pairs(char_pairs);
 
     if ascii_mode {
-        process_lines(process_line_ascii, &ranged_pairs);
+        process_lines(
+            InnerReadable::from_stdin(),
+            process_line_ascii,
+            &ranged_pairs,
+        );
     } else {
-        process_lines(process_line_utf8, &ranged_pairs);
+        process_lines(
+            InnerReadable::from_stdin(),
+            process_line_utf8,
+            &ranged_pairs,
+        );
     }
 }
 
