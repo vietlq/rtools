@@ -93,27 +93,6 @@ pub fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<
     // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
     // https://crates.io/crates/unicode-segmentation
 
-    /*
-    let mut pair_idx: usize = 0;
-    let mut char_pos: usize = ranged_pairs[pair_idx].0;
-    let pair_count = ranged_pairs.len();
-
-    while char_pos <= *char_count && pair_idx < pair_count {
-        let (start_pos, end_pos) = ranged_pairs[pair_idx];
-        char_pos = cmp::max(start_pos, char_pos);
-
-        if char_pos <= *char_count {
-            let mut dst = [0; 8];
-            out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
-        }
-
-        char_pos += 1;
-        if end_pos < char_pos {
-            pair_idx += 1;
-        }
-    }
-    */
-
     for (start_pos, end_pos) in ranged_pairs {
         let mut char_pos: usize = start_pos.clone();
 
@@ -398,6 +377,16 @@ mod tests {
         assert_eq!(
             merge_ranged_pairs(extract_ranged_pairs("3-7,8,2-10,11-20")),
             vec![(2, 20)]
+        );
+    }
+
+    #[test]
+    fn test_process_line_utf8() {
+        let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
+        let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
+        assert_eq!(
+            "🕊🐣🐦🐓🦢🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜\n".as_bytes().to_vec(),
+            process_line_utf8(content, &ranged_pairs)
         );
     }
 
