@@ -267,7 +267,9 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    const _STR_BIRDS_RANGES: &'static str = "9,4,7,3,12,5-15";
     const _STR_BIRDS: &'static str = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
+    const _STR_BIRDS_OUTPUT: &'static str = "🕊🐣🐦🐓🦢🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜\n";
 
     #[test]
     fn test_str_to_ranged_pair_valid_inputs() {
@@ -384,18 +386,27 @@ mod tests {
 
     #[test]
     fn test_process_line_utf8() {
-        let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
+        let ranged_pairs = extract_ranged_pairs(_STR_BIRDS_RANGES);
         assert_eq!(
-            "🕊🐣🐦🐓🦢🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜\n".as_bytes().to_vec(),
+            _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
             process_line_utf8(_STR_BIRDS, &ranged_pairs)
         );
     }
 
     #[test]
-    fn test_process_lines_with_cursor() {
+    fn test_process_lines_utf8_with_cursor() {
+        // https://doc.rust-lang.org/std/io/struct.Cursor.html
+        // https://stackoverflow.com/questions/41069865/how-to-create-an-in-memory-object-that-can-be-used-as-a-reader-writer-or-seek
         let input = BufReader::new(std::io::Cursor::new(_STR_BIRDS));
-        let output = BufWriter::new(std::io::stdout());
-        let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
+        let mut out_cursor = std::io::Cursor::new(Vec::<u8>::new());
+        let output = BufWriter::new(&mut out_cursor);
+        let ranged_pairs = extract_ranged_pairs(_STR_BIRDS_RANGES);
         process_lines(input, output, process_line_utf8, &ranged_pairs);
+
+        out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
+        // Read the "file's" contents into a vector
+        let mut out = Vec::new();
+        out_cursor.read_to_end(&mut out).unwrap();
+        assert_eq!(_STR_BIRDS_OUTPUT.as_bytes().to_vec(), out);
     }
 }
