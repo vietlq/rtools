@@ -9,8 +9,7 @@ use std::io::{BufReader, BufWriter};
 use std::{cmp, str};
 
 extern crate clap;
-//use clap::{App, Arg, ArgGroup, SubCommand};
-use clap::{App, Arg};
+use clap::{App, Arg, ArgGroup, SubCommand};
 
 /// Cargo version specified in the Cargo.toml file
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -61,9 +60,10 @@ pub fn extract_ranged_pairs(ranged_pairs_str: &str) -> Vec<(usize, usize)> {
 
 /// Sort ranged pairs and merge those having adjacent or overlapping boundaries
 pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
-    let mut ranged_pairs: Vec<(usize, usize)> = vec![];
-
+    // Without prior sorting, merging would be a bad idea
     unsorted_ranged_pairs.sort();
+
+    let mut ranged_pairs: Vec<(usize, usize)> = vec![];
 
     for ranged_pair in &unsorted_ranged_pairs {
         if ranged_pairs.is_empty() {
@@ -160,7 +160,7 @@ pub fn process_files<W: std::io::Write>(
             Ok(file) => {
                 let input = BufReader::new(file);
                 process_readable(input, &mut output, ascii_mode, ranged_pairs);
-            },
+            }
             Err(err) => {
                 eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
             }
@@ -188,37 +188,114 @@ pub fn process_lines<F, R: Read, W: Write>(
     }
 }
 
+/// Cut and paste lines by ranges of characters
+pub fn process_char_mode(
+    ascii_mode: bool,
+    ranged_pairs_str: &str,
+    no_merge: bool,
+    files: &Vec<&str>,
+) {
+    let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
+
+    let ranged_pairs = if no_merge {
+        unsorted_ranged_pairs
+    } else {
+        merge_ranged_pairs(unsorted_ranged_pairs)
+    };
+
+    if files.is_empty() {
+        process_readable(
+            BufReader::new(std::io::stdin()),
+            &mut BufWriter::new(std::io::stdout()),
+            ascii_mode,
+            &ranged_pairs,
+        );
+    } else {
+        process_files(&files, &mut std::io::stdout(), ascii_mode, &ranged_pairs);
+    }
+}
+
+/// Split lines into fields by delimiter, then cut and paste ranges of fields
+pub fn process_field_mode(
+    ascii_mode: bool,
+    delim: &str,
+    ranged_pairs_str: &str,
+    no_merge: bool,
+    files: &Vec<&str>,
+) {
+}
+
 /// Perform operations similar to GNU cut
 pub fn run() {
+    // Prints each argument on a separate line
+    for argument in std::env::args() {
+        println!("{}", argument);
+    }
+
+    const _STR_CHARACTERS: &'static str = "characters";
+    const _STR_DELIMITER: &'static str = "delimiter";
+    const _STR_FIELDS: &'static str = "fields";
+    const _STR_ASCII: &'static str = "ascii";
+    const _STR_NO_MERGE: &'static str = "no-merge";
+
     let matches = App::new("rcut")
         .version(version())
         .about("Replacement for GNU cut. Written in Rust.")
         .author("Viet Le")
         .arg(
-            Arg::with_name("characters")
+            Arg::with_name(_STR_CHARACTERS)
                 .short("c")
-                .long("characters")
+                .long(_STR_CHARACTERS)
                 .value_name("LIST")
                 .help(
-                    "Select only these ranges of characters.\n\
+                    "Select only these ranges of **characters**.\n\
                        Ranges are comma-separated.\n\
                        Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.",
                 )
                 .next_line_help(true)
-                .required(true),
+                .conflicts_with(_STR_DELIMITER)
+                .required(false)
+                .takes_value(true),
         )
         .arg(
-            Arg::with_name("ascii")
+            Arg::with_name(_STR_DELIMITER)
+                .short("d")
+                .long(_STR_DELIMITER)
+                .help(
+                    "Split lines into fields delimited by given delimiter.\n\
+                     Must be followed by list of fields. E.g. -f2,6-8.",
+                )
+                .next_line_help(true)
+                .required(false)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name(_STR_FIELDS)
+                .short("f")
+                .long(_STR_FIELDS)
+                .value_name("LIST")
+                .help(
+                    "Select only these ranges of **fields**.\n\
+                       Is dependent on the delimiter flag -d.\n\
+                       Ranges are comma-separated.\n\
+                       Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.",
+                )
+                .next_line_help(true)
+                .required(false)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name(_STR_ASCII)
                 .short("a")
-                .long("ascii")
+                .long(_STR_ASCII)
                 .help("Turn on ASCII mode (the default mode is UTF-8).")
                 .required(false)
                 .takes_value(false),
         )
         .arg(
-            Arg::with_name("no-merge")
+            Arg::with_name(_STR_NO_MERGE)
                 .short("N")
-                .long("no-merge")
+                .long(_STR_NO_MERGE)
                 .help(
                     "Do not sort and merge ranges.\n\
                     Think of it as cut-n-paste.\n\
@@ -240,36 +317,43 @@ pub fn run() {
         )
         .get_matches();
 
-    let characters = matches.value_of("characters").unwrap();
-    let ascii_mode = matches.is_present("ascii");
-    let no_merge = matches.is_present("no-merge");
+    let char_mode = matches.is_present(_STR_CHARACTERS);
+    let field_mode = matches.is_present(_STR_DELIMITER);
+
+    if !char_mode && !field_mode {
+        eprintln!("Either -c/--characters or -d/--delimiter must be present!");
+        std::process::exit(1);
+    }
+
+    if matches.is_present(_STR_FIELDS) && !field_mode {
+        eprintln!("The flag -f/--fields is dependent on the flag -d/--delimiter!");
+        std::process::exit(1);
+    }
+
+    if field_mode && !matches.is_present(_STR_FIELDS) {
+        eprintln!("The flag -d/--delimiter requires presence of -f/--fields!");
+        std::process::exit(1);
+    }
+
+    let ascii_mode = matches.is_present(_STR_ASCII);
+    let no_merge = matches.is_present(_STR_NO_MERGE);
+
     // NOTE: Use `values_of` instead of `value_of`!!!!
     let files_it_opt = matches.values_of("files");
-
-    let unsorted_ranged_pairs = extract_ranged_pairs(characters);
-
-    let ranged_pairs = if no_merge {
-        unsorted_ranged_pairs
-    } else {
-        merge_ranged_pairs(unsorted_ranged_pairs)
-    };
-
     let files = if files_it_opt.is_none() {
         vec![]
     } else {
         files_it_opt.unwrap().collect()
     };
 
-    if files.is_empty() {
-        process_readable(
-            BufReader::new(std::io::stdin()),
-            &mut BufWriter::new(std::io::stdout()),
-            ascii_mode,
-            &ranged_pairs,
-        );
+    if field_mode {
+        let delim = matches.value_of(_STR_DELIMITER).unwrap();
+        let ranged_pairs_str = matches.value_of(_STR_FIELDS).unwrap();
+        process_field_mode(ascii_mode, delim, ranged_pairs_str, no_merge, &files);
     } else {
-        process_files(&files, &mut std::io::stdout(), ascii_mode, &ranged_pairs);
-    }
+        let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
+        process_char_mode(ascii_mode, ranged_pairs_str, no_merge, &files);
+    };
 }
 
 #[cfg(test)]
@@ -432,7 +516,12 @@ mod tests {
 
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         // Let borrower of the output cursor expire before reacquiring the output cursor
-        process_lines(input, &mut BufWriter::new(&mut out_cursor), process_line_utf8, &ranged_pairs);
+        process_lines(
+            input,
+            &mut BufWriter::new(&mut out_cursor),
+            process_line_utf8,
+            &ranged_pairs,
+        );
 
         out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
         // Read the fake "file's" contents into a vector
