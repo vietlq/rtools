@@ -153,90 +153,14 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
     out_bytes
 }
 
-/// Utility class to encapsulate readable stream of bytes
-pub enum Readable {
-    Stdin(std::io::Stdin),
-    File(std::fs::File),
-    Cursor(std::io::Cursor<String>),
-}
-
-/// Utility methods to read from stream of bytes
-impl Readable {
-    fn from_stdin() -> Readable {
-        Readable::Stdin(std::io::stdin())
-    }
-
-    fn from_file(file_name: &str) -> Readable {
-        Readable::File(File::open(file_name).unwrap())
-    }
-
-    #[allow(dead_code)]
-    fn from_string(content: &str) -> Readable {
-        Readable::Cursor(std::io::Cursor::new(String::from(content)))
-    }
-}
-
-/// Implement std::io::Read by delegating read() to STDIN/file classes
-impl std::io::Read for Readable {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        // https://doc.rust-lang.org/std/io/type.Result.html
-        match self {
-            Readable::Stdin(inner_stdin) => inner_stdin.read(buf),
-            Readable::File(inner_file) => inner_file.read(buf),
-            Readable::Cursor(inner_cursor) => inner_cursor.read(buf),
-        }
-    }
-}
-
-/// Utility class to encapsulate writable stream of bytes
-pub enum Writable {
-    Stdout(std::io::Stdout),
-    File(std::fs::File),
-    //Cursor(std::io::Cursor<String>),
-}
-
-/// Utility methods to read from stream of bytes
-impl Writable {
-    fn to_stdout() -> Writable {
-        Writable::Stdout(std::io::stdout())
-    }
-
-    fn to_file(file_name: &str) -> Writable {
-        Writable::File(File::open(file_name).unwrap())
-    }
-
-    /*
-    #[allow(dead_code)]
-    fn to_string(content: &str) -> Writable {
-        Readable::Cursor(std::io::Cursor::new(String::from(content)))
-    }
-    */
-}
-
-/// Implement std::io::Read by delegating read() to STDIN/file classes
-impl std::io::Write for Writable {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
-        // https://doc.rust-lang.org/std/io/type.Result.html
-        match self {
-            Writable::Stdout(inner_stdout) => inner_stdout.write(buf),
-            Writable::File(inner_file) => inner_file.write(buf),
-            //Writable::Cursor(inner_cursor) => inner_cursor.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> Result<(), std::io::Error> {
-        match self {
-            Writable::Stdout(inner_stdout) => inner_stdout.flush(),
-            Writable::File(inner_file) => inner_file.flush(),
-            //Writable::Cursor(inner_cursor) => inner_cursor.write(buf),
-        }
-    }
-}
-
 /// Process readable object: Send it via rcut pipeline
-pub fn process_readable(readable: Readable, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
+pub fn process_readable<R: std::io::Read>(
+    readable: R,
+    ascii_mode: bool,
+    ranged_pairs: &Vec<(usize, usize)>,
+) {
     let input = BufReader::new(readable);
-    let output = BufWriter::new(Writable::to_stdout());
+    let output = BufWriter::new(std::io::stdout());
 
     if ascii_mode {
         process_lines(input, output, process_line_ascii, ranged_pairs);
@@ -249,7 +173,7 @@ pub fn process_readable(readable: Readable, ascii_mode: bool, ranged_pairs: &Vec
 pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
     for file in files {
         let result = std::panic::catch_unwind(|| {
-            process_readable(Readable::from_file(file), ascii_mode, ranged_pairs);
+            process_readable(File::open(file).unwrap(), ascii_mode, ranged_pairs);
         });
         if result.is_err() {
             eprintln!(
@@ -261,9 +185,9 @@ pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(us
 }
 
 /// Generic line processor that delegates to concrete line processors
-pub fn process_lines<F>(
-    input: BufReader<Readable>,
-    mut output: BufWriter<Writable>,
+pub fn process_lines<F, R: Read, W: Write>(
+    input: BufReader<R>,
+    mut output: BufWriter<W>,
     line_processor_fn: F,
     ranged_pairs: &Vec<(usize, usize)>,
 ) where
@@ -354,7 +278,7 @@ pub fn run() {
     };
 
     if files.is_empty() {
-        process_readable(Readable::from_stdin(), ascii_mode, &ranged_pairs);
+        process_readable(std::io::stdin(), ascii_mode, &ranged_pairs);
     } else {
         process_files(&files, ascii_mode, &ranged_pairs);
     }
@@ -480,8 +404,8 @@ mod tests {
     #[test]
     fn test_process_lines_with_cursor() {
         let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
-        let input = BufReader::new(Readable::from_string(content));
-        let output = BufWriter::new(Writable::to_stdout());
+        let input = BufReader::new(std::io::Cursor::new(content));
+        let output = BufWriter::new(std::io::stdout());
         let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
         process_lines(input, output, process_line_utf8, &ranged_pairs);
     }
