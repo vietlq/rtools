@@ -214,7 +214,7 @@ pub struct FieldMode<'a> {
 }
 
 /// Cut and paste lines by ranges of characters
-pub fn process_char_mode<'a>(char_mode: &CharMode<'a>) {
+pub fn process_char_mode(char_mode: &CharMode) {
     if char_mode.files.is_empty() {
         process_chars_from_readable(
             BufReader::new(std::io::stdin()),
@@ -380,7 +380,7 @@ pub fn run() {
             ascii_mode,
             delim,
             ranged_pairs,
-            files
+            files,
         };
         process_field_mode(&field_mode);
     } else {
