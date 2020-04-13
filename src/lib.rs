@@ -133,14 +133,12 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
 }
 
 /// Process readable object: Send it via rcut pipeline
-pub fn process_readable<R: std::io::Read>(
-    readable: R,
+pub fn process_readable<R: std::io::Read, W: std::io::Write>(
+    input: BufReader<R>,
+    output: &mut BufWriter<W>,
     ascii_mode: bool,
     ranged_pairs: &Vec<(usize, usize)>,
 ) {
-    let input = BufReader::new(readable);
-    let output = BufWriter::new(std::io::stdout());
-
     if ascii_mode {
         process_lines(input, output, process_line_ascii, ranged_pairs);
     } else {
@@ -149,24 +147,25 @@ pub fn process_readable<R: std::io::Read>(
 }
 
 /// Process files: Send them via rcut pipeline
-pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
+pub fn process_files<W: std::io::Write>(
+    files: &Vec<&str>,
+    writable: W,
+    ascii_mode: bool,
+    ranged_pairs: &Vec<(usize, usize)>,
+) {
+    let mut output = BufWriter::new(writable);
+
     for file in files {
-        let result = std::panic::catch_unwind(|| {
-            process_readable(File::open(file).unwrap(), ascii_mode, ranged_pairs);
-        });
-        if result.is_err() {
-            eprintln!(
-                "An error occurred when processing given file name `{}`: {:?}",
-                file, result
-            );
-        }
+        let file = File::open(file).unwrap();
+        let input = BufReader::new(file);
+        process_readable(input, &mut output, ascii_mode, ranged_pairs);
     }
 }
 
 /// Generic line processor that delegates to concrete line processors
 pub fn process_lines<F, R: Read, W: Write>(
     input: BufReader<R>,
-    mut output: BufWriter<W>,
+    output: &mut BufWriter<W>,
     line_processor_fn: F,
     ranged_pairs: &Vec<(usize, usize)>,
 ) where
@@ -257,9 +256,14 @@ pub fn run() {
     };
 
     if files.is_empty() {
-        process_readable(std::io::stdin(), ascii_mode, &ranged_pairs);
+        process_readable(
+            BufReader::new(std::io::stdin()),
+            &mut BufWriter::new(std::io::stdout()),
+            ascii_mode,
+            &ranged_pairs,
+        );
     } else {
-        process_files(&files, ascii_mode, &ranged_pairs);
+        process_files(&files, &mut std::io::stdout(), ascii_mode, &ranged_pairs);
     }
 }
 
@@ -420,9 +424,10 @@ mod tests {
         // https://stackoverflow.com/questions/41069865/how-to-create-an-in-memory-object-that-can-be-used-as-a-reader-writer-or-seek
         let input = BufReader::new(std::io::Cursor::new(_STR_BIRDS));
         let mut out_cursor = std::io::Cursor::new(Vec::<u8>::new());
-        let output = BufWriter::new(&mut out_cursor);
+
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
-        process_lines(input, output, process_line_utf8, &ranged_pairs);
+        // Let borrower of the cursor expire before reacquiring the cursor
+        process_lines(input, &mut BufWriter::new(&mut out_cursor), process_line_utf8, &ranged_pairs);
 
         out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
         // Read the "file's" contents into a vector
