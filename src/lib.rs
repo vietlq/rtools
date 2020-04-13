@@ -2,12 +2,6 @@
 //! Implementation details are exported for reusability in case users
 //! are interested in building their own char/word cutter.
 //!
-//! If you are wondering why this library is cool, consider this:
-//!
-//! ```
-//! echo 🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜 | rcut -N -c 9,4,7,3,12,5-15
-//! ```
-//!
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -26,7 +20,7 @@ pub fn version() -> &'static str {
     VERSION
 }
 
-/// Extract ranged pair having the pattern `(\d+-|-\d+|\d+-\d+)`
+/// Extract ranged pair having the pattern `(\d|\d+-|-\d+|\d+-\d+)`
 pub fn str_to_ranged_pair(char_part: &str) -> (usize, usize) {
     assert!(char_part != "-", "invalid range with no endpoint: -");
 
@@ -163,6 +157,7 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
 pub enum Readable {
     Stdin(std::io::Stdin),
     File(std::fs::File),
+    Cursor(std::io::Cursor<String>),
 }
 
 /// Utility methods to encapsulate STDIN/file for reading
@@ -174,6 +169,11 @@ impl Readable {
     fn from_file(file_name: &str) -> Readable {
         Readable::File(File::open(file_name).unwrap())
     }
+
+    #[allow(dead_code)]
+    fn from_string(content: &str) -> Readable {
+        Readable::Cursor(std::io::Cursor::new(String::from(content)))
+    }
 }
 
 /// Implement std::io::Read by delegating read() to STDIN/file classes
@@ -183,6 +183,7 @@ impl std::io::Read for Readable {
         match self {
             Readable::Stdin(inner_stdin) => inner_stdin.read(buf),
             Readable::File(inner_file) => inner_file.read(buf),
+            Readable::Cursor(inner_cursor) => inner_cursor.read(buf),
         }
     }
 }
@@ -421,5 +422,13 @@ mod tests {
             merge_ranged_pairs(extract_ranged_pairs("3-7,8,2-10,11-20")),
             vec![(2, 20)]
         );
+    }
+
+    #[test]
+    fn test_process_lines_with_cursor() {
+        let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
+        let readable = Readable::from_string(content);
+        let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
+        process_lines(readable, process_line_utf8, &ranged_pairs);
     }
 }
