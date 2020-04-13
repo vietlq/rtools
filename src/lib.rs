@@ -267,6 +267,8 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    const _STR_BIRDS: &'static str = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
+
     #[test]
     fn test_str_to_ranged_pair_valid_inputs() {
         assert_eq!(str_to_ranged_pair("1"), (1, 1));
@@ -382,18 +384,16 @@ mod tests {
 
     #[test]
     fn test_process_line_utf8() {
-        let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
         let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
         assert_eq!(
             "🕊🐣🐦🐓🦢🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜\n".as_bytes().to_vec(),
-            process_line_utf8(content, &ranged_pairs)
+            process_line_utf8(_STR_BIRDS, &ranged_pairs)
         );
     }
 
     #[test]
     fn test_process_lines_with_cursor() {
-        let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
-        let input = BufReader::new(std::io::Cursor::new(content));
+        let input = BufReader::new(std::io::Cursor::new(_STR_BIRDS));
         let output = BufWriter::new(std::io::stdout());
         let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
         process_lines(input, output, process_line_utf8, &ranged_pairs);
