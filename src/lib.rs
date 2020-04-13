@@ -2,6 +2,12 @@
 //! Implementation details are exported for reusability in case users
 //! are interested in building their own char/word cutter.
 //!
+//! If you are wondering why this library is cool, consider this:
+//!
+//! ```
+//! echo 🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜 | rcut -N -c 9,4,7,3,12,5-15
+//! ```
+//!
 
 use std::fs::File;
 use std::io::prelude::*;
