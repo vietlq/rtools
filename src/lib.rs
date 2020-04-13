@@ -84,7 +84,31 @@ pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec
 }
 
 /// Extract parts of a UTF-8 encoded line
-pub fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+pub fn process_utf8_chars_for_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let uchars: Vec<char> = line.chars().collect();
+    let mut out_bytes: Vec<u8> = vec![];
+    let char_count = &uchars.len();
+
+    // Handle UTF-8
+    // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+    // https://crates.io/crates/unicode-segmentation
+
+    for (start_pos, end_pos) in ranged_pairs {
+        let mut char_pos: usize = start_pos.clone();
+
+        while char_pos <= *char_count && char_pos <= *end_pos {
+            let mut dst = [0; 8];
+            out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
+            char_pos += 1;
+        }
+    }
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
+/// Extract parts of a UTF-8 encoded line
+pub fn process_utf8_fields_for_line(line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
     let char_count = &uchars.len();
@@ -108,7 +132,36 @@ pub fn process_line_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<
 }
 
 /// Extract parts of an ASCII encoded line
-pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+pub fn process_ascii_chars_for_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let mut out_bytes: Vec<u8> = vec![];
+
+    // Handle ASCII only
+    for (start_pos, end_pos) in ranged_pairs {
+        let len = &line.len();
+        if *start_pos > *len {
+            break;
+        }
+
+        // NOTE: This will panic if multi-byte characters are present
+        let final_str = if *end_pos < *len {
+            &line[start_pos - 1..*end_pos]
+        } else {
+            &line[start_pos - 1..]
+        };
+
+        out_bytes.extend(final_str.as_bytes());
+    }
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
+/// Extract parts of an ASCII encoded line
+pub fn process_ascii_fields_for_line(
+    line: &str,
+    delim: &str,
+    ranged_pairs: &Vec<(usize, usize)>,
+) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
 
     // Handle ASCII only
@@ -140,9 +193,36 @@ pub fn process_chars_from_readable<R: std::io::Read, W: std::io::Write>(
     ranged_pairs: &Vec<(usize, usize)>,
 ) {
     if ascii_mode {
-        process_lines(input, output, process_line_ascii, ranged_pairs);
+        process_chars_for_lines(input, output, process_ascii_chars_for_line, ranged_pairs);
     } else {
-        process_lines(input, output, process_line_utf8, ranged_pairs);
+        process_chars_for_lines(input, output, process_utf8_chars_for_line, ranged_pairs);
+    }
+}
+
+/// Process readable object: Send it via rcut pipeline
+pub fn process_fields_from_readable<R: std::io::Read, W: std::io::Write>(
+    input: BufReader<R>,
+    output: &mut BufWriter<W>,
+    ascii_mode: bool,
+    delim: &str,
+    ranged_pairs: &Vec<(usize, usize)>,
+) {
+    if ascii_mode {
+        process_fields_for_lines(
+            input,
+            output,
+            process_ascii_fields_for_line,
+            delim,
+            ranged_pairs,
+        );
+    } else {
+        process_fields_for_lines(
+            input,
+            output,
+            process_utf8_fields_for_line,
+            delim,
+            ranged_pairs,
+        );
     }
 }
 
@@ -168,8 +248,31 @@ pub fn process_chars_from_files<W: std::io::Write>(
     }
 }
 
+/// Process files: Send them via rcut pipeline
+pub fn process_fields_from_files<W: std::io::Write>(
+    files: &Vec<&str>,
+    writable: W,
+    ascii_mode: bool,
+    delim: &str,
+    ranged_pairs: &Vec<(usize, usize)>,
+) {
+    let mut output = BufWriter::new(writable);
+
+    for file in files {
+        match File::open(file) {
+            Ok(file) => {
+                let input = BufReader::new(file);
+                process_fields_from_readable(input, &mut output, ascii_mode, delim, ranged_pairs);
+            }
+            Err(err) => {
+                eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
+            }
+        }
+    }
+}
+
 /// Generic line processor that delegates to concrete line processors
-pub fn process_lines<F, R: Read, W: Write>(
+pub fn process_chars_for_lines<F, R: Read, W: Write>(
     input: BufReader<R>,
     output: &mut BufWriter<W>,
     line_processor_fn: F,
@@ -183,6 +286,27 @@ pub fn process_lines<F, R: Read, W: Write>(
 
     for line in input.lines() {
         let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
+
+        output.write(&out_bytes).unwrap();
+    }
+}
+
+/// Generic line processor that delegates to concrete line processors
+pub fn process_fields_for_lines<F, R: Read, W: Write>(
+    input: BufReader<R>,
+    output: &mut BufWriter<W>,
+    line_processor_fn: F,
+    delim: &str,
+    ranged_pairs: &Vec<(usize, usize)>,
+) where
+    F: Fn(&str, &str, &Vec<(usize, usize)>) -> Vec<u8>,
+{
+    // Use higher order function instead of repeating the logic
+    // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
+    // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
+
+    for line in input.lines() {
+        let out_bytes = line_processor_fn(&line.unwrap(), delim, &ranged_pairs);
 
         output.write(&out_bytes).unwrap();
     }
@@ -235,17 +359,19 @@ pub fn process_char_mode(char_mode: &CharMode) {
 /// Split lines into fields by delimiter, then cut and paste ranges of fields
 pub fn process_field_mode(field_mode: &FieldMode) {
     if field_mode.files.is_empty() {
-        process_chars_from_readable(
+        process_fields_from_readable(
             BufReader::new(std::io::stdin()),
             &mut BufWriter::new(std::io::stdout()),
             field_mode.ascii_mode,
+            field_mode.delim,
             &field_mode.ranged_pairs,
         );
     } else {
-        process_chars_from_files(
+        process_fields_from_files(
             &field_mode.files,
             &mut std::io::stdout(),
             field_mode.ascii_mode,
+            field_mode.delim,
             &field_mode.ranged_pairs,
         );
     }
@@ -523,7 +649,7 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
-            process_line_utf8(_STR_BIRDS, &ranged_pairs)
+            process_utf8_chars_for_line(_STR_BIRDS, &ranged_pairs)
         );
     }
 
@@ -532,7 +658,7 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_ALPHABET_OUTPUT.as_bytes().to_vec(),
-            process_line_ascii(_STR_ALPHABET, &ranged_pairs)
+            process_ascii_chars_for_line(_STR_ALPHABET, &ranged_pairs)
         );
     }
 
@@ -542,7 +668,7 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
-            process_line_ascii(_STR_BIRDS, &ranged_pairs)
+            process_ascii_chars_for_line(_STR_BIRDS, &ranged_pairs)
         );
     }
 
@@ -555,10 +681,10 @@ mod tests {
 
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         // Let borrower of the output cursor expire before reacquiring the output cursor
-        process_lines(
+        process_chars_for_lines(
             input,
             &mut BufWriter::new(&mut out_cursor),
-            process_line_utf8,
+            process_utf8_chars_for_line,
             &ranged_pairs,
         );
 
