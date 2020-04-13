@@ -5,7 +5,7 @@
 
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::{cmp, str};
 
 extern crate clap;
@@ -153,14 +153,14 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
     out_bytes
 }
 
-/// Utility class to enable static dispatching for STDIN and files
+/// Utility class to encapsulate readable stream of bytes
 pub enum Readable {
     Stdin(std::io::Stdin),
     File(std::fs::File),
     Cursor(std::io::Cursor<String>),
 }
 
-/// Utility methods to encapsulate STDIN/file for reading
+/// Utility methods to read from stream of bytes
 impl Readable {
     fn from_stdin() -> Readable {
         Readable::Stdin(std::io::stdin())
@@ -188,12 +188,60 @@ impl std::io::Read for Readable {
     }
 }
 
+/// Utility class to encapsulate writable stream of bytes
+pub enum Writable {
+    Stdout(std::io::Stdout),
+    File(std::fs::File),
+    //Cursor(std::io::Cursor<String>),
+}
+
+/// Utility methods to read from stream of bytes
+impl Writable {
+    fn to_stdout() -> Writable {
+        Writable::Stdout(std::io::stdout())
+    }
+
+    fn to_file(file_name: &str) -> Writable {
+        Writable::File(File::open(file_name).unwrap())
+    }
+
+    /*
+    #[allow(dead_code)]
+    fn to_string(content: &str) -> Writable {
+        Readable::Cursor(std::io::Cursor::new(String::from(content)))
+    }
+    */
+}
+
+/// Implement std::io::Read by delegating read() to STDIN/file classes
+impl std::io::Write for Writable {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+        // https://doc.rust-lang.org/std/io/type.Result.html
+        match self {
+            Writable::Stdout(inner_stdout) => inner_stdout.write(buf),
+            Writable::File(inner_file) => inner_file.write(buf),
+            //Writable::Cursor(inner_cursor) => inner_cursor.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), std::io::Error> {
+        match self {
+            Writable::Stdout(inner_stdout) => inner_stdout.flush(),
+            Writable::File(inner_file) => inner_file.flush(),
+            //Writable::Cursor(inner_cursor) => inner_cursor.write(buf),
+        }
+    }
+}
+
 /// Process readable object: Send it via rcut pipeline
 pub fn process_readable(readable: Readable, ascii_mode: bool, ranged_pairs: &Vec<(usize, usize)>) {
+    let input = BufReader::new(readable);
+    let output = BufWriter::new(Writable::to_stdout());
+
     if ascii_mode {
-        process_lines(readable, process_line_ascii, ranged_pairs);
+        process_lines(input, output, process_line_ascii, ranged_pairs);
     } else {
-        process_lines(readable, process_line_utf8, ranged_pairs);
+        process_lines(input, output, process_line_utf8, ranged_pairs);
     }
 }
 
@@ -213,18 +261,23 @@ pub fn process_files(files: &Vec<&str>, ascii_mode: bool, ranged_pairs: &Vec<(us
 }
 
 /// Generic line processor that delegates to concrete line processors
-pub fn process_lines<F>(input: Readable, line_processor_fn: F, ranged_pairs: &Vec<(usize, usize)>)
-where
+pub fn process_lines<F>(
+    input: BufReader<Readable>,
+    mut output: BufWriter<Writable>,
+    line_processor_fn: F,
+    ranged_pairs: &Vec<(usize, usize)>,
+) where
     F: Fn(&str, &Vec<(usize, usize)>) -> Vec<u8>,
 {
     // Use higher order function instead of repeating the logic
     // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
     // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
 
-    for line in BufReader::new(input).lines() {
+    for line in input.lines() {
         let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
 
-        std::io::stdout().write(&out_bytes).unwrap();
+        output.write(&out_bytes).unwrap();
+        //std::io::stdout().write(&out_bytes).unwrap();
     }
 }
 
@@ -427,8 +480,9 @@ mod tests {
     #[test]
     fn test_process_lines_with_cursor() {
         let content = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
-        let readable = Readable::from_string(content);
+        let input = BufReader::new(Readable::from_string(content));
+        let output = BufWriter::new(Writable::to_stdout());
         let ranged_pairs = extract_ranged_pairs("9,4,7,3,12,5-15");
-        process_lines(readable, process_line_utf8, &ranged_pairs);
+        process_lines(input, output, process_line_utf8, &ranged_pairs);
     }
 }
