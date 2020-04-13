@@ -22,7 +22,7 @@ Features:
 # Read from STDIN
 rcut -c 3-6,10,12-15 < /usr/share/dict/words
 
-# Read from files
+# Read from files (yes you can repeat file2)
 rcut -c 3-6,10,12-15 file1 file2 file2
 ```
 
@@ -32,7 +32,7 @@ rcut -c 3-6,10,12-15 file1 file2 file2
 # Read from STDIN
 rcut -a -c 3-6,10,12-15 < /usr/share/dict/words
 
-# Read from files
+# Read from files (yes you can repeat file2)
 rcut -a -c 3-6,10,12-15 file1 file2 file2
 ```
 
