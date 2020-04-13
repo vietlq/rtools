@@ -156,9 +156,15 @@ pub fn process_files<W: std::io::Write>(
     let mut output = BufWriter::new(writable);
 
     for file in files {
-        let file = File::open(file).unwrap();
-        let input = BufReader::new(file);
-        process_readable(input, &mut output, ascii_mode, ranged_pairs);
+        match File::open(file) {
+            Ok(file) => {
+                let input = BufReader::new(file);
+                process_readable(input, &mut output, ascii_mode, ranged_pairs);
+            },
+            Err(err) => {
+                eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
+            }
+        }
     }
 }
 
@@ -179,7 +185,6 @@ pub fn process_lines<F, R: Read, W: Write>(
         let out_bytes = line_processor_fn(&line.unwrap(), &ranged_pairs);
 
         output.write(&out_bytes).unwrap();
-        //std::io::stdout().write(&out_bytes).unwrap();
     }
 }
 
@@ -426,11 +431,11 @@ mod tests {
         let mut out_cursor = std::io::Cursor::new(Vec::<u8>::new());
 
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
-        // Let borrower of the cursor expire before reacquiring the cursor
+        // Let borrower of the output cursor expire before reacquiring the output cursor
         process_lines(input, &mut BufWriter::new(&mut out_cursor), process_line_utf8, &ranged_pairs);
 
         out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
-        // Read the "file's" contents into a vector
+        // Read the fake "file's" contents into a vector
         let mut out = Vec::new();
         out_cursor.read_to_end(&mut out).unwrap();
         assert_eq!(_STR_BIRDS_OUTPUT.as_bytes().to_vec(), out);
