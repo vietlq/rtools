@@ -9,7 +9,7 @@ use std::io::{BufReader, BufWriter};
 use std::{cmp, str};
 
 extern crate clap;
-use clap::{App, Arg, ArgGroup, SubCommand};
+use clap::{App, Arg};
 
 /// Cargo version specified in the Cargo.toml file
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -133,7 +133,7 @@ pub fn process_line_ascii(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec
 }
 
 /// Process readable object: Send it via rcut pipeline
-pub fn process_readable<R: std::io::Read, W: std::io::Write>(
+pub fn process_chars_from_readable<R: std::io::Read, W: std::io::Write>(
     input: BufReader<R>,
     output: &mut BufWriter<W>,
     ascii_mode: bool,
@@ -147,7 +147,7 @@ pub fn process_readable<R: std::io::Read, W: std::io::Write>(
 }
 
 /// Process files: Send them via rcut pipeline
-pub fn process_files<W: std::io::Write>(
+pub fn process_chars_from_files<W: std::io::Write>(
     files: &Vec<&str>,
     writable: W,
     ascii_mode: bool,
@@ -159,7 +159,7 @@ pub fn process_files<W: std::io::Write>(
         match File::open(file) {
             Ok(file) => {
                 let input = BufReader::new(file);
-                process_readable(input, &mut output, ascii_mode, ranged_pairs);
+                process_chars_from_readable(input, &mut output, ascii_mode, ranged_pairs);
             }
             Err(err) => {
                 eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
@@ -188,13 +188,7 @@ pub fn process_lines<F, R: Read, W: Write>(
     }
 }
 
-/// Cut and paste lines by ranges of characters
-pub fn process_char_mode(
-    ascii_mode: bool,
-    ranged_pairs_str: &str,
-    no_merge: bool,
-    files: &Vec<&str>,
-) {
+pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usize, usize)> {
     let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
 
     let ranged_pairs = if no_merge {
@@ -203,26 +197,58 @@ pub fn process_char_mode(
         merge_ranged_pairs(unsorted_ranged_pairs)
     };
 
-    if files.is_empty() {
-        process_readable(
+    ranged_pairs
+}
+
+pub struct CharMode<'a> {
+    ascii_mode: bool,
+    ranged_pairs: Vec<(usize, usize)>,
+    files: Vec<&'a str>,
+}
+
+pub struct FieldMode<'a> {
+    ascii_mode: bool,
+    delim: &'a str,
+    ranged_pairs: Vec<(usize, usize)>,
+    files: Vec<&'a str>,
+}
+
+/// Cut and paste lines by ranges of characters
+pub fn process_char_mode<'a>(char_mode: &CharMode<'a>) {
+    if char_mode.files.is_empty() {
+        process_chars_from_readable(
             BufReader::new(std::io::stdin()),
             &mut BufWriter::new(std::io::stdout()),
-            ascii_mode,
-            &ranged_pairs,
+            char_mode.ascii_mode,
+            &char_mode.ranged_pairs,
         );
     } else {
-        process_files(&files, &mut std::io::stdout(), ascii_mode, &ranged_pairs);
+        process_chars_from_files(
+            &char_mode.files,
+            &mut std::io::stdout(),
+            char_mode.ascii_mode,
+            &char_mode.ranged_pairs,
+        );
     }
 }
 
 /// Split lines into fields by delimiter, then cut and paste ranges of fields
-pub fn process_field_mode(
-    ascii_mode: bool,
-    delim: &str,
-    ranged_pairs_str: &str,
-    no_merge: bool,
-    files: &Vec<&str>,
-) {
+pub fn process_field_mode(field_mode: &FieldMode) {
+    if field_mode.files.is_empty() {
+        process_chars_from_readable(
+            BufReader::new(std::io::stdin()),
+            &mut BufWriter::new(std::io::stdout()),
+            field_mode.ascii_mode,
+            &field_mode.ranged_pairs,
+        );
+    } else {
+        process_chars_from_files(
+            &field_mode.files,
+            &mut std::io::stdout(),
+            field_mode.ascii_mode,
+            &field_mode.ranged_pairs,
+        );
+    }
 }
 
 /// Perform operations similar to GNU cut
@@ -349,10 +375,23 @@ pub fn run() {
     if field_mode {
         let delim = matches.value_of(_STR_DELIMITER).unwrap();
         let ranged_pairs_str = matches.value_of(_STR_FIELDS).unwrap();
-        process_field_mode(ascii_mode, delim, ranged_pairs_str, no_merge, &files);
+        let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
+        let field_mode = FieldMode {
+            ascii_mode,
+            delim,
+            ranged_pairs,
+            files
+        };
+        process_field_mode(&field_mode);
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
-        process_char_mode(ascii_mode, ranged_pairs_str, no_merge, &files);
+        let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
+        let char_mode = CharMode {
+            ascii_mode,
+            ranged_pairs,
+            files,
+        };
+        process_char_mode(&char_mode);
     };
 }
 
