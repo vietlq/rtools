@@ -267,9 +267,11 @@ pub fn run() {
 mod tests {
     use super::*;
 
-    const _STR_BIRDS_RANGES: &'static str = "9,4,7,3,12,5-15";
+    const _STR_RANGES_01: &'static str = "9,4,7,3,12,5-15";
     const _STR_BIRDS: &'static str = "🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜";
     const _STR_BIRDS_OUTPUT: &'static str = "🕊🐣🐦🐓🦢🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜\n";
+    const _STR_ALPHABET: &'static str = "abcdefghijklmnopqrstuvwxyz";
+    const _STR_ALPHABET_OUTPUT: &'static str = "idgclefghijklmno\n";
 
     #[test]
     fn test_str_to_ranged_pair_valid_inputs() {
@@ -386,10 +388,29 @@ mod tests {
 
     #[test]
     fn test_process_line_utf8() {
-        let ranged_pairs = extract_ranged_pairs(_STR_BIRDS_RANGES);
+        let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
             process_line_utf8(_STR_BIRDS, &ranged_pairs)
+        );
+    }
+
+    #[test]
+    fn test_process_line_ascii() {
+        let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
+        assert_eq!(
+            _STR_ALPHABET_OUTPUT.as_bytes().to_vec(),
+            process_line_ascii(_STR_ALPHABET, &ranged_pairs)
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_process_line_ascii_panic() {
+        let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
+        assert_eq!(
+            _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
+            process_line_ascii(_STR_BIRDS, &ranged_pairs)
         );
     }
 
@@ -400,7 +421,7 @@ mod tests {
         let input = BufReader::new(std::io::Cursor::new(_STR_BIRDS));
         let mut out_cursor = std::io::Cursor::new(Vec::<u8>::new());
         let output = BufWriter::new(&mut out_cursor);
-        let ranged_pairs = extract_ranged_pairs(_STR_BIRDS_RANGES);
+        let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         process_lines(input, output, process_line_utf8, &ranged_pairs);
 
         out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
