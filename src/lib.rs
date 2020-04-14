@@ -169,15 +169,14 @@ pub fn process_ascii_fields_for_line(
     let mut out_bytes: Vec<u8> = vec![];
 
     let fields: Vec<&str> = line.split(delim).collect();
+    let mut has_written = false;
 
-    // Handle ASCII only
     for (start_pos, end_pos) in ranged_pairs {
         let len = &fields.len();
         if *start_pos > *len {
             break;
         }
 
-        // NOTE: This will panic if multi-byte characters are present
         let extracted_fields = if *end_pos < *len {
             &fields[start_pos - 1..*end_pos]
         } else {
@@ -186,8 +185,10 @@ pub fn process_ascii_fields_for_line(
 
         for field in extracted_fields {
             // Delimiter sits between fields
-            if !out_bytes.is_empty() {
+            if has_written {
                 out_bytes.extend(delim.as_bytes());
+            } else {
+                has_written = true;
             }
 
             out_bytes.extend(field.as_bytes());
@@ -737,6 +738,17 @@ mod tests {
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             "\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &ranged_pairs)
+        );
+    }
+
+    #[test]
+    fn test_process_ascii_fields_for_line_1st_field_empty() {
+        let line = ":1:2:3";
+        let delim = ":";
+        let ranged_pairs: Vec<(usize, usize)> = vec![(1, 1), (3, 3)];
+        assert_eq!(
+            ":2\n".as_bytes().to_vec(),
             process_ascii_fields_for_line(line, delim, &ranged_pairs)
         );
     }
