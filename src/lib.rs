@@ -185,6 +185,11 @@ pub fn process_ascii_fields_for_line(
         };
 
         for field in extracted_fields {
+            // Delimiter sits between fields
+            if !out_bytes.is_empty() {
+                out_bytes.extend(delim.as_bytes());
+            }
+
             out_bytes.extend(field.as_bytes());
         }
     }
@@ -704,12 +709,23 @@ mod tests {
     }
 
     #[test]
-    fn test_process_ascii_fields_for_line() {
+    fn test_process_ascii_fields_for_line_ignored_delim() {
         let line = "1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             vec![10],
+            process_ascii_fields_for_line(line, delim, &ranged_pairs)
+        );
+    }
+
+    #[test]
+    fn test_process_ascii_fields_for_line_leading_delim() {
+        let line = ":1234";
+        let delim = ":";
+        let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
+        assert_eq!(
+            "1234\n".as_bytes().to_vec(),
             process_ascii_fields_for_line(line, delim, &ranged_pairs)
         );
     }
