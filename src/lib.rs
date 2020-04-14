@@ -108,7 +108,11 @@ pub fn process_utf8_chars_for_line(line: &str, ranged_pairs: &Vec<(usize, usize)
 }
 
 /// Extract parts of a UTF-8 encoded line
-pub fn process_utf8_fields_for_line(line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+pub fn process_utf8_fields_for_line(
+    line: &str,
+    delim: &str,
+    ranged_pairs: &Vec<(usize, usize)>,
+) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
     let char_count = &uchars.len();
@@ -164,21 +168,25 @@ pub fn process_ascii_fields_for_line(
 ) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
 
+    let fields: Vec<&str> = line.split(delim).collect();
+
     // Handle ASCII only
     for (start_pos, end_pos) in ranged_pairs {
-        let len = &line.len();
+        let len = &fields.len();
         if *start_pos > *len {
             break;
         }
 
         // NOTE: This will panic if multi-byte characters are present
-        let final_str = if *end_pos < *len {
-            &line[start_pos - 1..*end_pos]
+        let extracted_fields = if *end_pos < *len {
+            &fields[start_pos - 1..*end_pos]
         } else {
-            &line[start_pos - 1..]
+            &fields[start_pos - 1..]
         };
 
-        out_bytes.extend(final_str.as_bytes());
+        for field in extracted_fields {
+            out_bytes.extend(field.as_bytes());
+        }
     }
 
     out_bytes.extend("\n".as_bytes());
@@ -693,5 +701,16 @@ mod tests {
         let mut out = Vec::new();
         out_cursor.read_to_end(&mut out).unwrap();
         assert_eq!(_STR_BIRDS_OUTPUT.as_bytes().to_vec(), out);
+    }
+
+    #[test]
+    fn test_process_ascii_fields_for_line() {
+        let line = "1234";
+        let delim = ":";
+        let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
+        assert_eq!(
+            vec![10],
+            process_ascii_fields_for_line(line, delim, &ranged_pairs)
+        );
     }
 }
