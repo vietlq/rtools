@@ -729,4 +729,15 @@ mod tests {
             process_ascii_fields_for_line(line, delim, &ranged_pairs)
         );
     }
+
+    #[test]
+    fn test_process_ascii_fields_for_line_trailing_delim() {
+        let line = "1234:";
+        let delim = ":";
+        let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
+        assert_eq!(
+            "\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &ranged_pairs)
+        );
+    }
 }
