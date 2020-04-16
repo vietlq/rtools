@@ -83,36 +83,33 @@ pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec
     ranged_pairs
 }
 
-/// Extract parts of a UTF-8 encoded line
-pub fn process_utf8_chars_for_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
-    let uchars: Vec<char> = line.chars().collect();
-    let mut out_bytes: Vec<u8> = vec![];
-    let char_count = &uchars.len();
+pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usize, usize)> {
+    let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
 
-    // Handle UTF-8
-    // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
-    // https://crates.io/crates/unicode-segmentation
+    let ranged_pairs = if no_merge {
+        unsorted_ranged_pairs
+    } else {
+        merge_ranged_pairs(unsorted_ranged_pairs)
+    };
 
-    for (start_pos, end_pos) in ranged_pairs {
-        let mut char_pos: usize = start_pos.clone();
+    ranged_pairs
+}
 
-        while char_pos <= *char_count && char_pos <= *end_pos {
-            let mut dst = [0; 8];
-            out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
-            char_pos += 1;
-        }
-    }
+pub struct CharMode<'a> {
+    ascii_mode: bool,
+    ranged_pairs: Vec<(usize, usize)>,
+    files: Vec<&'a str>,
+}
 
-    out_bytes.extend("\n".as_bytes());
-    out_bytes
+pub struct FieldMode<'a> {
+    ascii_mode: bool,
+    delim: &'a str,
+    ranged_pairs: Vec<(usize, usize)>,
+    files: Vec<&'a str>,
 }
 
 /// Extract parts of a UTF-8 encoded line
-pub fn process_utf8_fields_for_line(
-    line: &str,
-    delim: &str,
-    ranged_pairs: &Vec<(usize, usize)>,
-) -> Vec<u8> {
+pub fn process_utf8_chars_for_line(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
     let char_count = &uchars.len();
@@ -179,6 +176,17 @@ pub trait ProcessField {
         delim: &str,
         ranged_pairs: &Vec<(usize, usize)>,
     );
+
+    fn process_files<W: std::io::Write>(
+        &self,
+        files: &Vec<&str>,
+        writable: W,
+        ascii_mode: bool,
+        delim: &str,
+        ranged_pairs: &Vec<(usize, usize)>,
+    );
+
+    fn process(&self, field_mode: &FieldMode);
 }
 
 pub struct FieldProcessor {}
@@ -227,10 +235,6 @@ impl ProcessField for FieldProcessor {
         delim: &str,
         ranged_pairs: &Vec<(usize, usize)>,
     ) {
-        // Use higher order function instead of repeating the logic
-        // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
-        // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
-
         for line in input.lines() {
             let out_bytes = self.process_line(&line.unwrap(), delim, &ranged_pairs);
 
@@ -248,6 +252,51 @@ impl ProcessField for FieldProcessor {
         ranged_pairs: &Vec<(usize, usize)>,
     ) {
         self.process_lines(input, output, delim, ranged_pairs);
+    }
+
+    /// Process files: Send them via rcut pipeline
+    fn process_files<W: std::io::Write>(
+        &self,
+        files: &Vec<&str>,
+        writable: W,
+        ascii_mode: bool,
+        delim: &str,
+        ranged_pairs: &Vec<(usize, usize)>,
+    ) {
+        let mut output = BufWriter::new(writable);
+
+        for file in files {
+            match File::open(file) {
+                Ok(file) => {
+                    let input = BufReader::new(file);
+                    self.process_readable(input, &mut output, ascii_mode, delim, ranged_pairs);
+                }
+                Err(err) => {
+                    eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
+                }
+            }
+        }
+    }
+
+    /// Split lines into fields by delimiter, then cut and paste ranges of fields
+    fn process(&self, field_mode: &FieldMode) {
+        if field_mode.files.is_empty() {
+            self.process_readable(
+                BufReader::new(std::io::stdin()),
+                &mut BufWriter::new(std::io::stdout()),
+                field_mode.ascii_mode,
+                field_mode.delim,
+                &field_mode.ranged_pairs,
+            );
+        } else {
+            self.process_files(
+                &field_mode.files,
+                &mut std::io::stdout(),
+                field_mode.ascii_mode,
+                field_mode.delim,
+                &field_mode.ranged_pairs,
+            );
+        }
     }
 }
 
@@ -287,36 +336,6 @@ pub fn process_chars_from_files<W: std::io::Write>(
     }
 }
 
-/// Process files: Send them via rcut pipeline
-pub fn process_fields_from_files<W: std::io::Write>(
-    files: &Vec<&str>,
-    writable: W,
-    ascii_mode: bool,
-    delim: &str,
-    ranged_pairs: &Vec<(usize, usize)>,
-) {
-    let mut output = BufWriter::new(writable);
-    let field_processor = FieldProcessor {};
-
-    for file in files {
-        match File::open(file) {
-            Ok(file) => {
-                let input = BufReader::new(file);
-                field_processor.process_readable(
-                    input,
-                    &mut output,
-                    ascii_mode,
-                    delim,
-                    ranged_pairs,
-                );
-            }
-            Err(err) => {
-                eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
-            }
-        }
-    }
-}
-
 /// Generic line processor that delegates to concrete line processors
 pub fn process_chars_for_lines<F, R: Read, W: Write>(
     input: BufReader<R>,
@@ -337,31 +356,6 @@ pub fn process_chars_for_lines<F, R: Read, W: Write>(
     }
 }
 
-pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usize, usize)> {
-    let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
-
-    let ranged_pairs = if no_merge {
-        unsorted_ranged_pairs
-    } else {
-        merge_ranged_pairs(unsorted_ranged_pairs)
-    };
-
-    ranged_pairs
-}
-
-pub struct CharMode<'a> {
-    ascii_mode: bool,
-    ranged_pairs: Vec<(usize, usize)>,
-    files: Vec<&'a str>,
-}
-
-pub struct FieldMode<'a> {
-    ascii_mode: bool,
-    delim: &'a str,
-    ranged_pairs: Vec<(usize, usize)>,
-    files: Vec<&'a str>,
-}
-
 /// Cut and paste lines by ranges of characters
 pub fn process_char_mode(char_mode: &CharMode) {
     if char_mode.files.is_empty() {
@@ -377,28 +371,6 @@ pub fn process_char_mode(char_mode: &CharMode) {
             &mut std::io::stdout(),
             char_mode.ascii_mode,
             &char_mode.ranged_pairs,
-        );
-    }
-}
-
-/// Split lines into fields by delimiter, then cut and paste ranges of fields
-pub fn process_field_mode(field_mode: &FieldMode) {
-    if field_mode.files.is_empty() {
-        let field_processor = FieldProcessor {};
-        field_processor.process_readable(
-            BufReader::new(std::io::stdin()),
-            &mut BufWriter::new(std::io::stdout()),
-            field_mode.ascii_mode,
-            field_mode.delim,
-            &field_mode.ranged_pairs,
-        );
-    } else {
-        process_fields_from_files(
-            &field_mode.files,
-            &mut std::io::stdout(),
-            field_mode.ascii_mode,
-            field_mode.delim,
-            &field_mode.ranged_pairs,
         );
     }
 }
@@ -534,7 +506,8 @@ pub fn run() {
             ranged_pairs,
             files,
         };
-        process_field_mode(&field_mode);
+        let field_processor = FieldProcessor {};
+        field_processor.process(&field_mode);
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
