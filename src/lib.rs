@@ -746,10 +746,25 @@ mod tests {
     fn test_process_ascii_fields_for_line_1st_field_empty() {
         let line = ":1:2:3";
         let delim = ":";
-        let ranged_pairs: Vec<(usize, usize)> = vec![(1, 1), (3, 3)];
         assert_eq!(
             ":2\n".as_bytes().to_vec(),
-            process_ascii_fields_for_line(line, delim, &ranged_pairs)
+            process_ascii_fields_for_line(line, delim, &vec![(1, 1), (3, 3)])
+        );
+        assert_eq!(
+            ":2:3\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
+        );
+        assert_eq!(
+            ":3\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &vec![(1, 1), (4, 4)])
+        );
+        assert_eq!(
+            ":2:3\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &vec![(1, 1), (3, 4)])
+        );
+        assert_eq!(
+            ":2:3\n".as_bytes().to_vec(),
+            process_ascii_fields_for_line(line, delim, &vec![(1, 1), (3, 5)])
         );
     }
 }
