@@ -52,7 +52,7 @@ Print usage with `rcut -h`:
 
 ```
 USAGE:
-    rcut [FLAGS] --characters <LIST> [files]...
+    rcut [FLAGS] [OPTIONS] [files]...
 
 FLAGS:
     -a, --ascii       Turn on ASCII mode (the default mode is UTF-8).
@@ -65,7 +65,15 @@ FLAGS:
 
 OPTIONS:
     -c, --characters <LIST>
-            Select only these ranges of characters.
+            Select only these ranges of **characters**.
+            Ranges are comma-separated.
+            Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.
+    -d, --delimiter <delimiter>
+            Split lines into fields delimited by given delimiter.
+            Must be followed by list of fields. E.g. -f2,6-8.
+    -f, --fields <LIST>
+            Select only these ranges of **fields**.
+            Is dependent on the delimiter flag -d.
             Ranges are comma-separated.
             Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.
 
