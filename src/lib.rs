@@ -108,7 +108,7 @@ pub struct FieldMode<'a> {
     files: Vec<&'a str>,
 }
 
-trait ProcessChar {
+pub trait ProcessChar {
     fn process_lines<P: ProcessLineByChar, R: Read, W: Write>(
         &self,
         line_processor: P,
@@ -136,11 +136,11 @@ trait ProcessChar {
     fn process(&self, char_mode: &CharMode);
 }
 
-trait ProcessLineByChar {
+pub trait ProcessLineByChar {
     fn process(&self, line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
 }
 
-struct Utf8CharLineProcessor {}
+pub struct Utf8CharLineProcessor {}
 
 impl ProcessLineByChar for Utf8CharLineProcessor {
     /// Extract parts of a UTF-8 encoded line
@@ -168,7 +168,7 @@ impl ProcessLineByChar for Utf8CharLineProcessor {
     }
 }
 
-struct AsciiCharLineProcessor {}
+pub struct AsciiCharLineProcessor {}
 
 impl ProcessLineByChar for AsciiCharLineProcessor {
     /// Extract parts of an ASCII encoded line
@@ -197,7 +197,7 @@ impl ProcessLineByChar for AsciiCharLineProcessor {
     }
 }
 
-struct CharProcessor {}
+pub struct CharProcessor {}
 
 impl ProcessChar for CharProcessor {
     /// Generic line processor that delegates to concrete line processors
