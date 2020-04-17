@@ -95,8 +95,24 @@ pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usiz
     ranged_pairs
 }
 
+pub trait CharContextT {
+    fn ranged_pairs(&self) -> &Vec<(usize, usize)>;
+}
+
+pub trait FieldContextT {
+    fn ranged_pairs(&self) -> &Vec<(usize, usize)>;
+
+    fn delim(&self) -> &str;
+}
+
 pub struct CharContext<'a> {
     ranged_pairs: &'a Vec<(usize, usize)>,
+}
+
+impl CharContextT for CharContext<'_> {
+    fn ranged_pairs(&self) -> &Vec<(usize, usize)> {
+        self.ranged_pairs
+    }
 }
 
 pub struct FieldContext<'a> {
@@ -104,15 +120,31 @@ pub struct FieldContext<'a> {
     delim: &'a str,
 }
 
-pub trait ProcessRcut<E, P> {
+impl FieldContextT for FieldContext<'_> {
+    fn ranged_pairs(&self) -> &Vec<(usize, usize)> {
+        self.ranged_pairs
+    }
+
+    fn delim(&self) -> &str {
+        self.delim
+    }
+}
+
+pub trait ProcessRcut<C, P: ProcessLine<C>> {
     /// Generic line processor that delegates to concrete line processors
     fn process_lines<R: Read, W: Write>(
         &self,
         line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        context: &E,
-    );
+        context: &C,
+    ) {
+        for line in input.lines() {
+            let out_bytes = line_processor.process(&line.unwrap(), context);
+
+            output.write(&out_bytes).unwrap();
+        }
+    }
 
     /// Process readable object: Send it via rcut pipeline
     fn process_readable<R: std::io::Read, W: std::io::Write>(
@@ -120,7 +152,7 @@ pub trait ProcessRcut<E, P> {
         line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        context: &E,
+        context: &C,
     ) {
         self.process_lines(line_processor, input, output, &context);
     }
@@ -131,7 +163,7 @@ pub trait ProcessRcut<E, P> {
         line_processor: &P,
         files: &Vec<&str>,
         writable: W,
-        context: &E,
+        context: &C,
     ) {
         // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
         let mut output = BufWriter::new(writable);
@@ -150,7 +182,7 @@ pub trait ProcessRcut<E, P> {
     }
 
     /// Cut and paste lines by ranges of characters
-    fn process(&self, line_processor: &P, files: &Vec<&str>, context: &E) {
+    fn process(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
         // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
         if files.is_empty() {
             self.process_readable(
@@ -165,15 +197,15 @@ pub trait ProcessRcut<E, P> {
     }
 }
 
-pub trait ProcessLineByChar {
-    fn process(&self, line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
+pub trait ProcessLine<C> {
+    fn process(&self, line: &str, context: &C) -> Vec<u8>;
 }
 
 pub struct Utf8CharLineProcessor {}
 
-impl ProcessLineByChar for Utf8CharLineProcessor {
+impl<C: CharContextT> ProcessLine<C> for Utf8CharLineProcessor {
     /// Extract parts of a UTF-8 encoded line
-    fn process(&self, line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let uchars: Vec<char> = line.chars().collect();
         let mut out_bytes: Vec<u8> = vec![];
         let char_count = &uchars.len();
@@ -182,7 +214,7 @@ impl ProcessLineByChar for Utf8CharLineProcessor {
         // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
         // https://crates.io/crates/unicode-segmentation
 
-        for (start_pos, end_pos) in ranged_pairs {
+        for (start_pos, end_pos) in context.ranged_pairs() {
             let mut char_pos: usize = start_pos.clone();
 
             while char_pos <= *char_count && char_pos <= *end_pos {
@@ -199,13 +231,13 @@ impl ProcessLineByChar for Utf8CharLineProcessor {
 
 pub struct AsciiCharLineProcessor {}
 
-impl ProcessLineByChar for AsciiCharLineProcessor {
+impl<C: CharContextT> ProcessLine<C> for AsciiCharLineProcessor {
     /// Extract parts of an ASCII encoded line
-    fn process(&self, line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
 
         // Handle ASCII only
-        for (start_pos, end_pos) in ranged_pairs {
+        for (start_pos, end_pos) in context.ranged_pairs() {
             let len = &line.len();
             if *start_pos > *len {
                 break;
@@ -228,42 +260,20 @@ impl ProcessLineByChar for AsciiCharLineProcessor {
 
 pub struct CharProcessor {}
 
-impl<P: ProcessLineByChar> ProcessRcut<CharContext<'_>, P> for CharProcessor {
-    /// Generic line processor that delegates to concrete line processors
-    fn process_lines<R: Read, W: Write>(
-        &self,
-        line_processor: &P,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        context: &CharContext,
-    ) {
-        // Use higher order function instead of repeating the logic
-        // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
-        // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
-
-        for line in input.lines() {
-            let out_bytes = line_processor.process(&line.unwrap(), context.ranged_pairs);
-
-            output.write(&out_bytes).unwrap();
-        }
-    }
-}
-
-pub trait ProcessLineByField {
-    fn process(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
-}
+impl<C: CharContextT, P: ProcessLine<C>> ProcessRcut<C, P> for CharProcessor {}
 
 pub struct Utf8FieldLineProcessor {}
 
-impl ProcessLineByField for Utf8FieldLineProcessor {
+impl<C: FieldContextT> ProcessLine<C> for Utf8FieldLineProcessor {
     /// Extract parts of an ASCII encoded line
-    fn process(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
+        let delim = context.delim();
 
         let fields: Vec<&str> = line.split(delim).collect();
         let mut has_written = false;
 
-        for (start_pos, end_pos) in ranged_pairs {
+        for (start_pos, end_pos) in context.ranged_pairs() {
             let len = &fields.len();
             if *start_pos > *len {
                 break;
@@ -294,23 +304,7 @@ impl ProcessLineByField for Utf8FieldLineProcessor {
 
 pub struct FieldProcessor {}
 
-impl ProcessRcut<FieldContext<'_>, Utf8FieldLineProcessor> for FieldProcessor {
-    /// Generic line processor that delegates to concrete line processors
-    fn process_lines<R: Read, W: Write>(
-        &self,
-        line_processor: &Utf8FieldLineProcessor,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        context: &FieldContext,
-    ) {
-        for line in input.lines() {
-            let out_bytes =
-                line_processor.process(&line.unwrap(), &context.delim, &context.ranged_pairs);
-
-            output.write(&out_bytes).unwrap();
-        }
-    }
-}
+impl ProcessRcut<FieldContext<'_>, Utf8FieldLineProcessor> for FieldProcessor {}
 
 /// Perform operations similar to GNU cut
 pub fn run() {
@@ -350,7 +344,7 @@ pub fn run() {
                 .long(_STR_DELIMITER)
                 .help(
                     "Split lines into fields delimited by given delimiter.\n\
-                     Must be followed by list of fields. E.g. -f2,6-8.",
+                     Must be followed by list of fields. C.g. -f2,6-8.",
                 )
                 .next_line_help(true)
                 .required(false)
@@ -587,7 +581,12 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
-            char_processor.process(_STR_BIRDS, &ranged_pairs)
+            char_processor.process(
+                _STR_BIRDS,
+                &CharContext {
+                    ranged_pairs: &ranged_pairs
+                }
+            )
         );
     }
 
@@ -597,7 +596,12 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_ALPHABET_OUTPUT.as_bytes().to_vec(),
-            char_processor.process(_STR_ALPHABET, &ranged_pairs)
+            char_processor.process(
+                _STR_ALPHABET,
+                &CharContext {
+                    ranged_pairs: &ranged_pairs
+                }
+            )
         );
     }
 
@@ -608,7 +612,12 @@ mod tests {
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
-            char_processor.process(_STR_BIRDS, &ranged_pairs)
+            char_processor.process(
+                _STR_BIRDS,
+                &CharContext {
+                    ranged_pairs: &ranged_pairs
+                }
+            )
         );
     }
 
@@ -644,7 +653,16 @@ mod tests {
         let line = "1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
-        assert_eq!(vec![10], line_processor.process(line, delim, &ranged_pairs));
+        assert_eq!(
+            vec![10],
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &ranged_pairs
+                }
+            )
+        );
     }
 
     #[test]
@@ -655,7 +673,13 @@ mod tests {
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             "1234\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &ranged_pairs)
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &ranged_pairs
+                }
+            )
         );
     }
 
@@ -667,7 +691,13 @@ mod tests {
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             "\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &ranged_pairs)
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &ranged_pairs
+                }
+            )
         );
     }
 
@@ -678,23 +708,53 @@ mod tests {
         let delim = ":";
         assert_eq!(
             ":2\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 3)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 3)]
+                },
+            )
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 3), (4, 4)]
+                }
+            )
         );
         assert_eq!(
             ":3\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (4, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (4, 4)]
+                }
+            )
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 4)]
+                }
+            )
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 5)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 5)]
+                }
+            )
         );
     }
 
@@ -705,23 +765,53 @@ mod tests {
         let delim = ":";
         assert_eq!(
             ":🐥\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 3)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 3)]
+                }
+            )
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 3), (4, 4)]
+                }
+            )
         );
         assert_eq!(
             ":🐓\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (4, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (4, 4)]
+                }
+            )
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 4)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 4)]
+                }
+            )
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            line_processor.process(line, delim, &vec![(1, 1), (3, 5)])
+            line_processor.process(
+                line,
+                &FieldContext {
+                    delim,
+                    ranged_pairs: &vec![(1, 1), (3, 5)]
+                }
+            )
         );
     }
 }
