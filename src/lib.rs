@@ -324,18 +324,6 @@ impl ProcessRcut<ExtraFieldData<'_>, Utf8FieldLineProcessor> for FieldProcessor 
             output.write(&out_bytes).unwrap();
         }
     }
-
-    /// Process readable object: Send it via rcut pipeline
-    fn process_readable<R: std::io::Read, W: std::io::Write>(
-        &self,
-        line_processor: &Utf8FieldLineProcessor,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        ranged_pairs: &Vec<(usize, usize)>,
-        extra: &ExtraFieldData,
-    ) {
-        self.process_lines(line_processor, input, output, ranged_pairs, &extra);
-    }
 }
 
 /// Perform operations similar to GNU cut
