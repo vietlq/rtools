@@ -95,17 +95,13 @@ pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usiz
     ranged_pairs
 }
 
-pub struct CharMode<'a> {
-    ascii_mode: bool,
+pub struct CharMode {
     ranged_pairs: Vec<(usize, usize)>,
-    files: Vec<&'a str>,
 }
 
 pub struct FieldMode<'a> {
-    ascii_mode: bool,
     delim: &'a str,
     ranged_pairs: Vec<(usize, usize)>,
-    files: Vec<&'a str>,
 }
 
 pub trait ProcessChar {
@@ -160,19 +156,19 @@ pub trait ProcessChar {
     }
 
     /// Cut and paste lines by ranges of characters
-    fn process(&self, char_mode: &CharMode) {
-        if char_mode.files.is_empty() {
+    fn process(&self, ascii_mode: bool, files: &Vec<&str>, char_mode: &CharMode) {
+        if files.is_empty() {
             self.process_readable(
                 BufReader::new(std::io::stdin()),
                 &mut BufWriter::new(std::io::stdout()),
-                char_mode.ascii_mode,
+                ascii_mode,
                 &char_mode.ranged_pairs,
             );
         } else {
             self.process_files(
-                &char_mode.files,
+                &files,
                 &mut std::io::stdout(),
-                char_mode.ascii_mode,
+                ascii_mode,
                 &char_mode.ranged_pairs,
             );
         }
@@ -354,20 +350,20 @@ pub trait ProcessField {
     }
 
     /// Split lines into fields by delimiter, then cut and paste ranges of fields
-    fn process(&self, field_mode: &FieldMode) {
-        if field_mode.files.is_empty() {
+    fn process(&self, ascii_mode: bool, files: &Vec<&str>, field_mode: &FieldMode) {
+        if files.is_empty() {
             self.process_readable(
                 BufReader::new(std::io::stdin()),
                 &mut BufWriter::new(std::io::stdout()),
-                field_mode.ascii_mode,
+                ascii_mode,
                 field_mode.delim,
                 &field_mode.ranged_pairs,
             );
         } else {
             self.process_files(
-                &field_mode.files,
+                &files,
                 &mut std::io::stdout(),
-                field_mode.ascii_mode,
+                ascii_mode,
                 field_mode.delim,
                 &field_mode.ranged_pairs,
             );
@@ -522,24 +518,18 @@ pub fn run() {
         let delim = matches.value_of(_STR_DELIMITER).unwrap();
         let ranged_pairs_str = matches.value_of(_STR_FIELDS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
+        let field_processor = FieldProcessor {};
         let field_mode = FieldMode {
-            ascii_mode,
             delim,
             ranged_pairs,
-            files,
         };
-        let field_processor = FieldProcessor {};
-        field_processor.process(&field_mode);
+        field_processor.process(ascii_mode, &files, &field_mode);
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
-        let char_mode = CharMode {
-            ascii_mode,
-            ranged_pairs,
-            files,
-        };
+        let char_mode = CharMode { ranged_pairs };
         let char_processor = CharProcessor {};
-        char_processor.process(&char_mode);
+        char_processor.process(ascii_mode, &files, &char_mode);
     };
 }
 
