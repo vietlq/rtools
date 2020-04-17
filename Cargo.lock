@@ -58,7 +58,7 @@ checksum = "dea0c0405123bba743ee3f91f49b1c7cfb684eef0da0a50110f758ccf24cdff0"
 
 [[package]]
 name = "rcut"
-version = "0.0.27"
+version = "0.0.28"
 dependencies = [
  "clap",
 ]
