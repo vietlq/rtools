@@ -83,6 +83,7 @@ pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec
     ranged_pairs
 }
 
+/// Utility function to process ranged pairs (extract, and may or may not merge)
 pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usize, usize)> {
     let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
 
