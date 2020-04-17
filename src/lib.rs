@@ -118,7 +118,6 @@ pub trait ProcessRcut<E, P> {
         line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
         extra: &E,
     ) {
@@ -131,24 +130,17 @@ pub trait ProcessRcut<E, P> {
         line_processor: &P,
         files: &Vec<&str>,
         writable: W,
-        ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
         extra: &E,
     ) {
+        // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
         let mut output = BufWriter::new(writable);
 
         for file in files {
             match File::open(file) {
                 Ok(file) => {
                     let input = BufReader::new(file);
-                    self.process_readable(
-                        line_processor,
-                        input,
-                        &mut output,
-                        ascii_mode,
-                        ranged_pairs,
-                        extra,
-                    );
+                    self.process_readable(line_processor, input, &mut output, ranged_pairs, extra);
                 }
                 Err(err) => {
                     eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
@@ -161,17 +153,16 @@ pub trait ProcessRcut<E, P> {
     fn process(
         &self,
         line_processor: &P,
-        ascii_mode: bool,
         files: &Vec<&str>,
         ranged_pairs: &Vec<(usize, usize)>,
         extra: &E,
     ) {
+        // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
         if files.is_empty() {
             self.process_readable(
                 line_processor,
                 BufReader::new(std::io::stdin()),
                 &mut BufWriter::new(std::io::stdout()),
-                ascii_mode,
                 &ranged_pairs,
                 extra,
             );
@@ -180,7 +171,6 @@ pub trait ProcessRcut<E, P> {
                 line_processor,
                 &files,
                 &mut std::io::stdout(),
-                ascii_mode,
                 &ranged_pairs,
                 extra,
             );
@@ -251,15 +241,15 @@ impl ProcessLineByChar for AsciiCharLineProcessor {
 
 pub struct CharProcessor {}
 
-impl ProcessRcut<ExtraCharData, Utf8CharLineProcessor> for CharProcessor {
+impl<P: ProcessLineByChar> ProcessRcut<ExtraCharData, P> for CharProcessor {
     /// Generic line processor that delegates to concrete line processors
     fn process_lines<R: Read, W: Write>(
         &self,
-        line_processor: &Utf8CharLineProcessor,
+        line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
         ranged_pairs: &Vec<(usize, usize)>,
-        extra: &ExtraCharData,
+        _extra: &ExtraCharData,
     ) {
         // Use higher order function instead of repeating the logic
         // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
@@ -341,7 +331,6 @@ impl ProcessRcut<ExtraFieldData<'_>, Utf8FieldLineProcessor> for FieldProcessor 
         line_processor: &Utf8FieldLineProcessor,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
         extra: &ExtraFieldData,
     ) {
@@ -476,25 +465,17 @@ pub fn run() {
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
         let field_processor = FieldProcessor {};
         let extra = ExtraFieldData { delim };
-        field_processor.process(
-            &Utf8FieldLineProcessor {},
-            ascii_mode,
-            &files,
-            &ranged_pairs,
-            &extra,
-        );
+        field_processor.process(&Utf8FieldLineProcessor {}, &files, &ranged_pairs, &extra);
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
         let char_processor = CharProcessor {};
         let extra = ExtraCharData {};
-        char_processor.process(
-            &Utf8CharLineProcessor {},
-            ascii_mode,
-            &files,
-            &ranged_pairs,
-            &extra,
-        );
+        if ascii_mode {
+            char_processor.process(&AsciiCharLineProcessor {}, &files, &ranged_pairs, &extra);
+        } else {
+            char_processor.process(&Utf8CharLineProcessor {}, &files, &ranged_pairs, &extra);
+        }
     };
 }
 
