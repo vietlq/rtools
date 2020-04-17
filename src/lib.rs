@@ -83,7 +83,7 @@ pub fn merge_ranged_pairs(mut unsorted_ranged_pairs: Vec<(usize, usize)>) -> Vec
     ranged_pairs
 }
 
-/// Utility function to process ranged pairs (extract, and may or may not merge)
+/// Utility function to process ranged pairs (extract, and merge on demand)
 pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usize, usize)> {
     let unsorted_ranged_pairs = extract_ranged_pairs(ranged_pairs_str);
 
@@ -202,9 +202,9 @@ pub trait ProcessLine<C> {
     fn process(&self, line: &str, context: &C) -> Vec<u8>;
 }
 
-pub struct Utf8CharLineProcessor {}
+pub struct CharUtf8LineProcessor {}
 
-impl<C: CharContextT> ProcessLine<C> for Utf8CharLineProcessor {
+impl<C: CharContextT> ProcessLine<C> for CharUtf8LineProcessor {
     /// Extract parts of a UTF-8 encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let uchars: Vec<char> = line.chars().collect();
@@ -230,9 +230,9 @@ impl<C: CharContextT> ProcessLine<C> for Utf8CharLineProcessor {
     }
 }
 
-pub struct AsciiCharLineProcessor {}
+pub struct CharAsciiLineProcessor {}
 
-impl<C: CharContextT> ProcessLine<C> for AsciiCharLineProcessor {
+impl<C: CharContextT> ProcessLine<C> for CharAsciiLineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
@@ -263,9 +263,9 @@ pub struct CharProcessor {}
 
 impl<C: CharContextT, P: ProcessLine<C>> ProcessRcut<C, P> for CharProcessor {}
 
-pub struct Utf8FieldLineProcessor {}
+pub struct FieldUtf8LineProcessor {}
 
-impl<C: FieldContextT> ProcessLine<C> for Utf8FieldLineProcessor {
+impl<C: FieldContextT> ProcessLine<C> for FieldUtf8LineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
@@ -437,7 +437,7 @@ pub fn run() {
             ranged_pairs: &ranged_pairs,
             delim,
         };
-        field_processor.process(&Utf8FieldLineProcessor {}, &files, &context);
+        field_processor.process(&FieldUtf8LineProcessor {}, &files, &context);
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
@@ -446,9 +446,9 @@ pub fn run() {
             ranged_pairs: &ranged_pairs,
         };
         if ascii_mode {
-            char_processor.process(&AsciiCharLineProcessor {}, &files, &context);
+            char_processor.process(&CharAsciiLineProcessor {}, &files, &context);
         } else {
-            char_processor.process(&Utf8CharLineProcessor {}, &files, &context);
+            char_processor.process(&CharUtf8LineProcessor {}, &files, &context);
         }
     };
 }
@@ -578,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_process_line_utf8() {
-        let char_processor = Utf8CharLineProcessor {};
+        let char_processor = CharUtf8LineProcessor {};
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_process_line_ascii() {
-        let char_processor = AsciiCharLineProcessor {};
+        let char_processor = CharAsciiLineProcessor {};
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_ALPHABET_OUTPUT.as_bytes().to_vec(),
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_process_line_ascii_panic() {
-        let char_processor = AsciiCharLineProcessor {};
+        let char_processor = CharAsciiLineProcessor {};
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
@@ -633,7 +633,7 @@ mod tests {
         let char_processor = CharProcessor {};
         // Let borrower of the output cursor expire before reacquiring the output cursor
         char_processor.process_lines(
-            &Utf8CharLineProcessor {},
+            &CharUtf8LineProcessor {},
             input,
             &mut BufWriter::new(&mut out_cursor),
             &CharContext {
@@ -650,7 +650,7 @@ mod tests {
 
     #[test]
     fn test_process_ascii_fields_for_line_ignored_delim() {
-        let line_processor = Utf8FieldLineProcessor {};
+        let line_processor = FieldUtf8LineProcessor {};
         let line = "1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
@@ -668,7 +668,7 @@ mod tests {
 
     #[test]
     fn test_process_ascii_fields_for_line_leading_delim() {
-        let line_processor = Utf8FieldLineProcessor {};
+        let line_processor = FieldUtf8LineProcessor {};
         let line = ":1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn test_process_ascii_fields_for_line_trailing_delim() {
-        let line_processor = Utf8FieldLineProcessor {};
+        let line_processor = FieldUtf8LineProcessor {};
         let line = "1234:";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn test_process_ascii_fields_for_line_1st_field_empty() {
-        let line_processor = Utf8FieldLineProcessor {};
+        let line_processor = FieldUtf8LineProcessor {};
         let line = ":1:2:3";
         let delim = ":";
         assert_eq!(
@@ -761,7 +761,7 @@ mod tests {
 
     #[test]
     fn test_process_utf8_fields_for_line_1st_field_empty() {
-        let line_processor = Utf8FieldLineProcessor {};
+        let line_processor = FieldUtf8LineProcessor {};
         let line = ":🐣:🐥:🐓";
         let delim = ":";
         assert_eq!(
