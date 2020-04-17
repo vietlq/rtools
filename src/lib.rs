@@ -277,43 +277,15 @@ impl ProcessChar for CharProcessor {
     }
 }
 
-pub trait ProcessField {
-    fn process_line(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
-
-    fn process_lines<R: Read, W: Write>(
-        &self,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        delim: &str,
-        ranged_pairs: &Vec<(usize, usize)>,
-    );
-
-    fn process_readable<R: std::io::Read, W: std::io::Write>(
-        &self,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        ascii_mode: bool,
-        delim: &str,
-        ranged_pairs: &Vec<(usize, usize)>,
-    );
-
-    fn process_files<W: std::io::Write>(
-        &self,
-        files: &Vec<&str>,
-        writable: W,
-        ascii_mode: bool,
-        delim: &str,
-        ranged_pairs: &Vec<(usize, usize)>,
-    );
-
-    fn process(&self, field_mode: &FieldMode);
+pub trait ProcessLineByField {
+    fn process(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
 }
 
-pub struct FieldProcessor {}
+struct Utf8FieldLineProcessor {}
 
-impl ProcessField for FieldProcessor {
+impl ProcessLineByField for Utf8FieldLineProcessor {
     /// Extract parts of an ASCII encoded line
-    fn process_line(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    fn process(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
 
         let fields: Vec<&str> = line.split(delim).collect();
@@ -346,7 +318,41 @@ impl ProcessField for FieldProcessor {
         out_bytes.extend("\n".as_bytes());
         out_bytes
     }
+}
 
+pub trait ProcessField {
+    fn process_lines<R: Read, W: Write>(
+        &self,
+        input: BufReader<R>,
+        output: &mut BufWriter<W>,
+        delim: &str,
+        ranged_pairs: &Vec<(usize, usize)>,
+    );
+
+    fn process_readable<R: std::io::Read, W: std::io::Write>(
+        &self,
+        input: BufReader<R>,
+        output: &mut BufWriter<W>,
+        ascii_mode: bool,
+        delim: &str,
+        ranged_pairs: &Vec<(usize, usize)>,
+    );
+
+    fn process_files<W: std::io::Write>(
+        &self,
+        files: &Vec<&str>,
+        writable: W,
+        ascii_mode: bool,
+        delim: &str,
+        ranged_pairs: &Vec<(usize, usize)>,
+    );
+
+    fn process(&self, field_mode: &FieldMode);
+}
+
+pub struct FieldProcessor {}
+
+impl ProcessField for FieldProcessor {
     /// Generic line processor that delegates to concrete line processors
     fn process_lines<R: Read, W: Write>(
         &self,
@@ -355,8 +361,9 @@ impl ProcessField for FieldProcessor {
         delim: &str,
         ranged_pairs: &Vec<(usize, usize)>,
     ) {
+        let line_processor = Utf8FieldLineProcessor {};
         for line in input.lines() {
-            let out_bytes = self.process_line(&line.unwrap(), delim, &ranged_pairs);
+            let out_bytes = line_processor.process(&line.unwrap(), delim, &ranged_pairs);
 
             output.write(&out_bytes).unwrap();
         }
@@ -746,91 +753,88 @@ mod tests {
 
     #[test]
     fn test_process_ascii_fields_for_line_ignored_delim() {
-        let field_processor = FieldProcessor {};
+        let line_processor = Utf8FieldLineProcessor {};
         let line = "1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
-        assert_eq!(
-            vec![10],
-            field_processor.process_line(line, delim, &ranged_pairs)
-        );
+        assert_eq!(vec![10], line_processor.process(line, delim, &ranged_pairs));
     }
 
     #[test]
     fn test_process_ascii_fields_for_line_leading_delim() {
-        let field_processor = FieldProcessor {};
+        let line_processor = Utf8FieldLineProcessor {};
         let line = ":1234";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             "1234\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &ranged_pairs)
+            line_processor.process(line, delim, &ranged_pairs)
         );
     }
 
     #[test]
     fn test_process_ascii_fields_for_line_trailing_delim() {
-        let field_processor = FieldProcessor {};
+        let line_processor = Utf8FieldLineProcessor {};
         let line = "1234:";
         let delim = ":";
         let ranged_pairs: Vec<(usize, usize)> = vec![(2, 2), (4, 6)];
         assert_eq!(
             "\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &ranged_pairs)
+            line_processor.process(line, delim, &ranged_pairs)
         );
     }
 
     #[test]
     fn test_process_ascii_fields_for_line_1st_field_empty() {
-        let field_processor = FieldProcessor {};
+        let line_processor = Utf8FieldLineProcessor {};
         let line = ":1:2:3";
         let delim = ":";
         assert_eq!(
             ":2\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 3)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 3)])
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
         );
         assert_eq!(
             ":3\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (4, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (4, 4)])
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 4)])
         );
         assert_eq!(
             ":2:3\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 5)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 5)])
         );
     }
 
     #[test]
     fn test_process_utf8_fields_for_line_1st_field_empty() {
-        let field_processor = FieldProcessor {};
+        let line_processor = Utf8FieldLineProcessor {};
         let line = ":🐣:🐥:🐓";
         let delim = ":";
         assert_eq!(
             ":🐥\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 3)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 3)])
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 3), (4, 4)])
         );
         assert_eq!(
             ":🐓\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (4, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (4, 4)])
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 4)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 4)])
         );
         assert_eq!(
             ":🐥:🐓\n".as_bytes().to_vec(),
-            field_processor.process_line(line, delim, &vec![(1, 1), (3, 5)])
+            line_processor.process(line, delim, &vec![(1, 1), (3, 5)])
         );
     }
 }
