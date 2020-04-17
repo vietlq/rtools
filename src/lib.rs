@@ -95,50 +95,45 @@ pub fn prepare_ranged_pairs(no_merge: bool, ranged_pairs_str: &str) -> Vec<(usiz
     ranged_pairs
 }
 
-pub struct CharMode {
-    ranged_pairs: Vec<(usize, usize)>,
-}
+pub struct ExtraCharData {}
 
-pub struct FieldMode<'a> {
+pub struct ExtraFieldData<'a> {
     delim: &'a str,
-    ranged_pairs: Vec<(usize, usize)>,
 }
 
-pub trait ProcessChar {
+pub trait ProcessRcut<E, P> {
     /// Generic line processor that delegates to concrete line processors
-    fn process_lines<P: ProcessLineByChar, R: Read, W: Write>(
+    fn process_lines<R: Read, W: Write>(
         &self,
         line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
         ranged_pairs: &Vec<(usize, usize)>,
-    ) {
-        // Use higher order function instead of repeating the logic
-        // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
-        // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
+        extra: &E,
+    );
 
-        for line in input.lines() {
-            let out_bytes = line_processor.process(&line.unwrap(), &ranged_pairs);
-
-            output.write(&out_bytes).unwrap();
-        }
-    }
-
+    /// Process readable object: Send it via rcut pipeline
     fn process_readable<R: std::io::Read, W: std::io::Write>(
         &self,
+        line_processor: &P,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
         ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
-    );
+        extra: &E,
+    ) {
+        self.process_lines(line_processor, input, output, ranged_pairs, &extra);
+    }
 
     /// Process files: Send them via rcut pipeline
     fn process_files<W: std::io::Write>(
         &self,
+        line_processor: &P,
         files: &Vec<&str>,
         writable: W,
         ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
+        extra: &E,
     ) {
         let mut output = BufWriter::new(writable);
 
@@ -146,7 +141,14 @@ pub trait ProcessChar {
             match File::open(file) {
                 Ok(file) => {
                     let input = BufReader::new(file);
-                    self.process_readable(input, &mut output, ascii_mode, ranged_pairs);
+                    self.process_readable(
+                        line_processor,
+                        input,
+                        &mut output,
+                        ascii_mode,
+                        ranged_pairs,
+                        extra,
+                    );
                 }
                 Err(err) => {
                     eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
@@ -156,20 +158,31 @@ pub trait ProcessChar {
     }
 
     /// Cut and paste lines by ranges of characters
-    fn process(&self, ascii_mode: bool, files: &Vec<&str>, char_mode: &CharMode) {
+    fn process(
+        &self,
+        line_processor: &P,
+        ascii_mode: bool,
+        files: &Vec<&str>,
+        ranged_pairs: &Vec<(usize, usize)>,
+        extra: &E,
+    ) {
         if files.is_empty() {
             self.process_readable(
+                line_processor,
                 BufReader::new(std::io::stdin()),
                 &mut BufWriter::new(std::io::stdout()),
                 ascii_mode,
-                &char_mode.ranged_pairs,
+                &ranged_pairs,
+                extra,
             );
         } else {
             self.process_files(
+                line_processor,
                 &files,
                 &mut std::io::stdout(),
                 ascii_mode,
-                &char_mode.ranged_pairs,
+                &ranged_pairs,
+                extra,
             );
         }
     }
@@ -238,19 +251,24 @@ impl ProcessLineByChar for AsciiCharLineProcessor {
 
 pub struct CharProcessor {}
 
-impl ProcessChar for CharProcessor {
-    /// Process readable object: Send it via rcut pipeline
-    fn process_readable<R: std::io::Read, W: std::io::Write>(
+impl ProcessRcut<ExtraCharData, Utf8CharLineProcessor> for CharProcessor {
+    /// Generic line processor that delegates to concrete line processors
+    fn process_lines<R: Read, W: Write>(
         &self,
+        line_processor: &Utf8CharLineProcessor,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        ascii_mode: bool,
         ranged_pairs: &Vec<(usize, usize)>,
+        extra: &ExtraCharData,
     ) {
-        if ascii_mode {
-            self.process_lines(&AsciiCharLineProcessor {}, input, output, ranged_pairs);
-        } else {
-            self.process_lines(&Utf8CharLineProcessor {}, input, output, ranged_pairs);
+        // Use higher order function instead of repeating the logic
+        // https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html
+        // https://www.integer32.com/2017/02/02/stupid-tricks-with-higher-order-functions.html
+
+        for line in input.lines() {
+            let out_bytes = line_processor.process(&line.unwrap(), &ranged_pairs);
+
+            output.write(&out_bytes).unwrap();
         }
     }
 }
@@ -298,18 +316,20 @@ impl ProcessLineByField for Utf8FieldLineProcessor {
     }
 }
 
-pub trait ProcessField {
+pub struct FieldProcessor {}
+
+impl ProcessRcut<ExtraFieldData<'_>, Utf8FieldLineProcessor> for FieldProcessor {
     /// Generic line processor that delegates to concrete line processors
-    fn process_lines<P: ProcessLineByField, R: Read, W: Write>(
+    fn process_lines<R: Read, W: Write>(
         &self,
-        line_processor: &P,
+        line_processor: &Utf8FieldLineProcessor,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
-        delim: &str,
         ranged_pairs: &Vec<(usize, usize)>,
+        extra: &ExtraFieldData,
     ) {
         for line in input.lines() {
-            let out_bytes = line_processor.process(&line.unwrap(), delim, &ranged_pairs);
+            let out_bytes = line_processor.process(&line.unwrap(), &extra.delim, &ranged_pairs);
 
             output.write(&out_bytes).unwrap();
         }
@@ -318,78 +338,14 @@ pub trait ProcessField {
     /// Process readable object: Send it via rcut pipeline
     fn process_readable<R: std::io::Read, W: std::io::Write>(
         &self,
+        line_processor: &Utf8FieldLineProcessor,
         input: BufReader<R>,
         output: &mut BufWriter<W>,
         ascii_mode: bool,
-        delim: &str,
         ranged_pairs: &Vec<(usize, usize)>,
-    );
-
-    /// Process files: Send them via rcut pipeline
-    fn process_files<W: std::io::Write>(
-        &self,
-        files: &Vec<&str>,
-        writable: W,
-        ascii_mode: bool,
-        delim: &str,
-        ranged_pairs: &Vec<(usize, usize)>,
+        extra: &ExtraFieldData,
     ) {
-        let mut output = BufWriter::new(writable);
-
-        for file in files {
-            match File::open(file) {
-                Ok(file) => {
-                    let input = BufReader::new(file);
-                    self.process_readable(input, &mut output, ascii_mode, delim, ranged_pairs);
-                }
-                Err(err) => {
-                    eprintln!("Could not read the file `{}`. The error: {:?}", file, err);
-                }
-            }
-        }
-    }
-
-    /// Split lines into fields by delimiter, then cut and paste ranges of fields
-    fn process(&self, ascii_mode: bool, files: &Vec<&str>, field_mode: &FieldMode) {
-        if files.is_empty() {
-            self.process_readable(
-                BufReader::new(std::io::stdin()),
-                &mut BufWriter::new(std::io::stdout()),
-                ascii_mode,
-                field_mode.delim,
-                &field_mode.ranged_pairs,
-            );
-        } else {
-            self.process_files(
-                &files,
-                &mut std::io::stdout(),
-                ascii_mode,
-                field_mode.delim,
-                &field_mode.ranged_pairs,
-            );
-        }
-    }
-}
-
-pub struct FieldProcessor {}
-
-impl ProcessField for FieldProcessor {
-    /// Process readable object: Send it via rcut pipeline
-    fn process_readable<R: std::io::Read, W: std::io::Write>(
-        &self,
-        input: BufReader<R>,
-        output: &mut BufWriter<W>,
-        ascii_mode: bool,
-        delim: &str,
-        ranged_pairs: &Vec<(usize, usize)>,
-    ) {
-        self.process_lines(
-            &Utf8FieldLineProcessor {},
-            input,
-            output,
-            delim,
-            ranged_pairs,
-        );
+        self.process_lines(line_processor, input, output, ranged_pairs, &extra);
     }
 }
 
@@ -519,17 +475,26 @@ pub fn run() {
         let ranged_pairs_str = matches.value_of(_STR_FIELDS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
         let field_processor = FieldProcessor {};
-        let field_mode = FieldMode {
-            delim,
-            ranged_pairs,
-        };
-        field_processor.process(ascii_mode, &files, &field_mode);
+        let extra = ExtraFieldData { delim };
+        field_processor.process(
+            &Utf8FieldLineProcessor {},
+            ascii_mode,
+            &files,
+            &ranged_pairs,
+            &extra,
+        );
     } else {
         let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
-        let char_mode = CharMode { ranged_pairs };
         let char_processor = CharProcessor {};
-        char_processor.process(ascii_mode, &files, &char_mode);
+        let extra = ExtraCharData {};
+        char_processor.process(
+            &Utf8CharLineProcessor {},
+            ascii_mode,
+            &files,
+            &ranged_pairs,
+            &extra,
+        );
     };
 }
 
@@ -702,6 +667,7 @@ mod tests {
             input,
             &mut BufWriter::new(&mut out_cursor),
             &ranged_pairs,
+            &ExtraCharData {},
         );
 
         out_cursor.seek(std::io::SeekFrom::Start(0)).unwrap();
