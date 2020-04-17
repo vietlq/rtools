@@ -305,7 +305,7 @@ impl<C: FieldContextT> ProcessLine<C> for Utf8FieldLineProcessor {
 
 pub struct FieldProcessor {}
 
-impl ProcessRcut<FieldContext<'_>, Utf8FieldLineProcessor> for FieldProcessor {}
+impl<C: FieldContextT, P: ProcessLine<C>> ProcessRcut<C, P> for FieldProcessor {}
 
 /// Perform operations similar to GNU cut
 pub fn run() {
