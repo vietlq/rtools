@@ -281,7 +281,7 @@ pub trait ProcessLineByField {
     fn process(&self, line: &str, delim: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8>;
 }
 
-struct Utf8FieldLineProcessor {}
+pub struct Utf8FieldLineProcessor {}
 
 impl ProcessLineByField for Utf8FieldLineProcessor {
     /// Extract parts of an ASCII encoded line
