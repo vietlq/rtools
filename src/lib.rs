@@ -310,6 +310,7 @@ impl<C: FieldContextT, P: LineProcessorT<C>> RtoolT<C, P> for FieldProcessor {}
 
 /// Perform operations similar to GNU cut
 pub fn do_rcut(input_args: &Vec<&str>) {
+    const _STR_BYTES: &'static str = "bytes";
     const _STR_CHARACTERS: &'static str = "characters";
     const _STR_DELIMITER: &'static str = "delimiter";
     const _STR_FIELDS: &'static str = "fields";
@@ -321,6 +322,21 @@ pub fn do_rcut(input_args: &Vec<&str>) {
         .about("Replacement for GNU cut. Written in Rust.")
         .author("Viet Le")
         .arg(
+            Arg::with_name(_STR_BYTES)
+                .short("b")
+                .long(_STR_BYTES)
+                .value_name("LIST")
+                .help(
+                    "Select only these ranges of **bytes**.\n\
+                       Ranges are comma-separated.\n\
+                       Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.",
+                )
+                .next_line_help(true)
+                .conflicts_with_all(&vec![_STR_DELIMITER, _STR_CHARACTERS])
+                .required(false)
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name(_STR_CHARACTERS)
                 .short("c")
                 .long(_STR_CHARACTERS)
@@ -331,7 +347,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
                        Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.",
                 )
                 .next_line_help(true)
-                .conflicts_with(_STR_DELIMITER)
+                .conflicts_with_all(&vec![_STR_DELIMITER, _STR_BYTES])
                 .required(false)
                 .takes_value(true),
         )
@@ -395,11 +411,12 @@ pub fn do_rcut(input_args: &Vec<&str>) {
         )
         .get_matches_from(input_args);
 
+    let byte_mode = matches.is_present(_STR_BYTES);
     let char_mode = matches.is_present(_STR_CHARACTERS);
     let field_mode = matches.is_present(_STR_DELIMITER);
 
-    if !char_mode && !field_mode {
-        eprintln!("Either -c/--characters or -d/--delimiter must be present!");
+    if !byte_mode && !char_mode && !field_mode {
+        eprintln!("Onr of -b/--bytes or -c/--characters or -d/--delimiter must be present!");
         std::process::exit(1);
     }
 
@@ -435,13 +452,19 @@ pub fn do_rcut(input_args: &Vec<&str>) {
         };
         field_processor.process(&FieldUtf8LineProcessor {}, &files, &context);
     } else {
-        let ranged_pairs_str = matches.value_of(_STR_CHARACTERS).unwrap();
+        let ranged_pairs_str = if char_mode {
+            matches.value_of(_STR_CHARACTERS).unwrap()
+        } else {
+            matches.value_of(_STR_BYTES).unwrap()
+        };
+
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
         let char_processor = CharProcessor {};
         let context = CharContext {
             ranged_pairs: &ranged_pairs,
         };
-        if ascii_mode {
+
+        if ascii_mode || byte_mode {
             char_processor.process(&ByteLineProcessor {}, &files, &context);
         } else {
             char_processor.process(&CharUtf8LineProcessor {}, &files, &context);
