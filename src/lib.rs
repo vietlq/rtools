@@ -416,7 +416,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
     let field_mode = matches.is_present(_STR_DELIMITER);
 
     if !byte_mode && !char_mode && !field_mode {
-        eprintln!("Onr of -b/--bytes or -c/--characters or -d/--delimiter must be present!");
+        eprintln!("One of -b/--bytes or -c/--characters or -d/--delimiter must be present!");
         std::process::exit(1);
     }
 
