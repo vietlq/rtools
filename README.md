@@ -2,7 +2,7 @@
 
 `rcut` is a Rust replacement for GNU cut that supports UTF-8.
 
-Only `rcut` can do this correctly, not GNU `cut`:
+The tool `rcut` shines where not GNU `cut` falls short:
 
 ```
 echo 🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜 | rcut -N -c 9,4,7,3,12,5-15
@@ -64,13 +64,17 @@ FLAGS:
     -V, --version     Prints version information
 
 OPTIONS:
+    -b, --bytes <LIST>
+            Select only these ranges of **bytes**.
+            Ranges are comma-separated.
+            Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.
     -c, --characters <LIST>
             Select only these ranges of **characters**.
             Ranges are comma-separated.
             Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.
     -d, --delimiter <delimiter>
             Split lines into fields delimited by given delimiter.
-            Must be followed by list of fields. E.g. -f2,6-8.
+            Must be followed by list of fields. C.g. -f2,6-8.
     -f, --fields <LIST>
             Select only these ranges of **fields**.
             Is dependent on the delimiter flag -d.
