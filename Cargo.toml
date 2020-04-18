@@ -1,6 +1,6 @@
 [package]
 name = "rcut"
-version = "0.0.36"
+version = "0.0.37"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 description = "rcut is a Rust replacement for GNU cut that supports UTF-8."
@@ -26,7 +26,7 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.34"
+clap = "2.33"
 
 [profile.release]
 opt-level = 3
