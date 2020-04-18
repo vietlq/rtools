@@ -230,28 +230,29 @@ impl<C: CharContextT> LineProcessorT<C> for CharUtf8LineProcessor {
     }
 }
 
-pub struct CharAsciiLineProcessor {}
+pub struct ByteLineProcessor {}
 
-impl<C: CharContextT> LineProcessorT<C> for CharAsciiLineProcessor {
+impl<C: CharContextT> LineProcessorT<C> for ByteLineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
+        let bytes = line.as_bytes();
+        let len = &bytes.len();
 
-        // Handle ASCII only
+        // Handle ASCII/single-bytes only
         for (start_pos, end_pos) in context.ranged_pairs() {
-            let len = &line.len();
             if *start_pos > *len {
                 break;
             }
 
             // NOTE: This will panic if multi-byte characters are present
-            let final_str = if *end_pos < *len {
-                &line[start_pos - 1..*end_pos]
+            let final_bytes = if *end_pos < *len {
+                &bytes[start_pos - 1..*end_pos]
             } else {
-                &line[start_pos - 1..]
+                &bytes[start_pos - 1..]
             };
 
-            out_bytes.extend(final_str.as_bytes());
+            out_bytes.extend(final_bytes);
         }
 
         out_bytes.extend("\n".as_bytes());
@@ -441,7 +442,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
             ranged_pairs: &ranged_pairs,
         };
         if ascii_mode {
-            char_processor.process(&CharAsciiLineProcessor {}, &files, &context);
+            char_processor.process(&ByteLineProcessor {}, &files, &context);
         } else {
             char_processor.process(&CharUtf8LineProcessor {}, &files, &context);
         }
@@ -588,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_process_line_ascii() {
-        let char_processor = CharAsciiLineProcessor {};
+        let char_processor = ByteLineProcessor {};
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_ALPHABET_OUTPUT.as_bytes().to_vec(),
@@ -604,7 +605,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_process_line_ascii_panic() {
-        let char_processor = CharAsciiLineProcessor {};
+        let char_processor = ByteLineProcessor {};
         let ranged_pairs = extract_ranged_pairs(_STR_RANGES_01);
         assert_eq!(
             _STR_BIRDS_OUTPUT.as_bytes().to_vec(),
