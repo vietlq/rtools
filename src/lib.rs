@@ -357,7 +357,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
                 .long(_STR_DELIMITER)
                 .help(
                     "Split lines into fields delimited by given delimiter.\n\
-                     Must be followed by list of fields. C.g. -f2,6-8.",
+                     Must be followed by list of fields. E.g. -f2,6-8.",
                 )
                 .next_line_help(true)
                 .required(false)

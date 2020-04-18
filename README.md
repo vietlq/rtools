@@ -74,7 +74,7 @@ OPTIONS:
             Sample ranges: 5; 3-7,9; -5; 5-; 4,8-; -4,8.
     -d, --delimiter <delimiter>
             Split lines into fields delimited by given delimiter.
-            Must be followed by list of fields. C.g. -f2,6-8.
+            Must be followed by list of fields. E.g. -f2,6-8.
     -f, --fields <LIST>
             Select only these ranges of **fields**.
             Is dependent on the delimiter flag -d.
