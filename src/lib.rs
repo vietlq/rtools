@@ -308,12 +308,7 @@ pub struct FieldProcessor {}
 impl<C: FieldContextT, P: LineProcessorT<C>> RtoolT<C, P> for FieldProcessor {}
 
 /// Perform operations similar to GNU cut
-pub fn run() {
-    // Prints each argument on a separate line
-    for argument in std::env::args() {
-        println!("{}", argument);
-    }
-
+pub fn do_rcut(input_args: &Vec<&str>) {
     const _STR_CHARACTERS: &'static str = "characters";
     const _STR_DELIMITER: &'static str = "delimiter";
     const _STR_FIELDS: &'static str = "fields";
@@ -397,7 +392,7 @@ pub fn run() {
                 .required(false)
                 .multiple(true),
         )
-        .get_matches();
+        .get_matches_from(input_args);
 
     let char_mode = matches.is_present(_STR_CHARACTERS);
     let field_mode = matches.is_present(_STR_DELIMITER);
