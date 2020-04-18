@@ -2,7 +2,7 @@
 
 `rcut` is a Rust replacement for GNU cut that supports UTF-8.
 
-The tool `rcut` shines where not GNU `cut` falls short:
+The tool `rcut` shines where GNU `cut` falls short:
 
 ```
 echo 🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦚🦜 | rcut -N -c 9,4,7,3,12,5-15

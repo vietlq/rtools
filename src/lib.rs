@@ -204,6 +204,7 @@ pub trait LineProcessorT<C> {
 
 pub struct CharUtf8LineProcessor {}
 
+/// Extract chars from a UTF-8 line within given ranges
 pub fn process_line_by_char_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let uchars: Vec<char> = line.chars().collect();
     let mut out_bytes: Vec<u8> = vec![];
@@ -236,6 +237,7 @@ impl<C: CharContextT> LineProcessorT<C> for CharUtf8LineProcessor {
 
 pub struct ByteLineProcessor {}
 
+/// Extract bytes from a line within given ranges
 pub fn process_line_by_byte(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
     let bytes = line.as_bytes();
@@ -274,6 +276,7 @@ impl<C: CharContextT, P: LineProcessorT<C>> RtoolT<C, P> for CharProcessor {}
 
 pub struct FieldUtf8LineProcessor {}
 
+/// Extract fields from a UTF-8 line within given ranges
 pub fn process_line_by_field_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>, delim: &str) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = vec![];
     let delim = delim;
