@@ -131,7 +131,7 @@ impl FieldContextT for FieldContext<'_> {
     }
 }
 
-pub trait ProcessRcut<C, P: ProcessLine<C>> {
+pub trait RtoolT<C, P: LineProcessorT<C>> {
     /// Generic line processor that delegates to concrete line processors
     fn process_lines<R: Read, W: Write>(
         &self,
@@ -198,13 +198,13 @@ pub trait ProcessRcut<C, P: ProcessLine<C>> {
     }
 }
 
-pub trait ProcessLine<C> {
+pub trait LineProcessorT<C> {
     fn process(&self, line: &str, context: &C) -> Vec<u8>;
 }
 
 pub struct CharUtf8LineProcessor {}
 
-impl<C: CharContextT> ProcessLine<C> for CharUtf8LineProcessor {
+impl<C: CharContextT> LineProcessorT<C> for CharUtf8LineProcessor {
     /// Extract parts of a UTF-8 encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let uchars: Vec<char> = line.chars().collect();
@@ -232,7 +232,7 @@ impl<C: CharContextT> ProcessLine<C> for CharUtf8LineProcessor {
 
 pub struct CharAsciiLineProcessor {}
 
-impl<C: CharContextT> ProcessLine<C> for CharAsciiLineProcessor {
+impl<C: CharContextT> LineProcessorT<C> for CharAsciiLineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
@@ -261,11 +261,11 @@ impl<C: CharContextT> ProcessLine<C> for CharAsciiLineProcessor {
 
 pub struct CharProcessor {}
 
-impl<C: CharContextT, P: ProcessLine<C>> ProcessRcut<C, P> for CharProcessor {}
+impl<C: CharContextT, P: LineProcessorT<C>> RtoolT<C, P> for CharProcessor {}
 
 pub struct FieldUtf8LineProcessor {}
 
-impl<C: FieldContextT> ProcessLine<C> for FieldUtf8LineProcessor {
+impl<C: FieldContextT> LineProcessorT<C> for FieldUtf8LineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
         let mut out_bytes: Vec<u8> = vec![];
@@ -305,7 +305,7 @@ impl<C: FieldContextT> ProcessLine<C> for FieldUtf8LineProcessor {
 
 pub struct FieldProcessor {}
 
-impl<C: FieldContextT, P: ProcessLine<C>> ProcessRcut<C, P> for FieldProcessor {}
+impl<C: FieldContextT, P: LineProcessorT<C>> RtoolT<C, P> for FieldProcessor {}
 
 /// Perform operations similar to GNU cut
 pub fn run() {
