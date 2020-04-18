@@ -204,59 +204,67 @@ pub trait LineProcessorT<C> {
 
 pub struct CharUtf8LineProcessor {}
 
+pub fn process_line_by_char_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let uchars: Vec<char> = line.chars().collect();
+    let mut out_bytes: Vec<u8> = vec![];
+    let char_count = &uchars.len();
+
+    // Handle UTF-8
+    // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
+    // https://crates.io/crates/unicode-segmentation
+
+    for (start_pos, end_pos) in ranged_pairs {
+        let mut char_pos: usize = start_pos.clone();
+
+        while char_pos <= *char_count && char_pos <= *end_pos {
+            let mut dst = [0; 8];
+            out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
+            char_pos += 1;
+        }
+    }
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
 impl<C: CharContextT> LineProcessorT<C> for CharUtf8LineProcessor {
     /// Extract parts of a UTF-8 encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
-        let uchars: Vec<char> = line.chars().collect();
-        let mut out_bytes: Vec<u8> = vec![];
-        let char_count = &uchars.len();
-
-        // Handle UTF-8
-        // https://stackoverflow.com/questions/51982999/slice-a-string-containing-unicode-chars
-        // https://crates.io/crates/unicode-segmentation
-
-        for (start_pos, end_pos) in context.ranged_pairs() {
-            let mut char_pos: usize = start_pos.clone();
-
-            while char_pos <= *char_count && char_pos <= *end_pos {
-                let mut dst = [0; 8];
-                out_bytes.extend(uchars[char_pos - 1].encode_utf8(&mut dst).as_bytes());
-                char_pos += 1;
-            }
-        }
-
-        out_bytes.extend("\n".as_bytes());
-        out_bytes
+        process_line_by_char_utf8(line, context.ranged_pairs())
     }
 }
 
 pub struct ByteLineProcessor {}
 
+pub fn process_line_by_byte(line: &str, ranged_pairs: &Vec<(usize, usize)>) -> Vec<u8> {
+    let mut out_bytes: Vec<u8> = vec![];
+    let bytes = line.as_bytes();
+    let len = &bytes.len();
+
+    // Handle ASCII/single-bytes only
+    for (start_pos, end_pos) in ranged_pairs {
+        if *start_pos > *len {
+            break;
+        }
+
+        // NOTE: This will panic if multi-byte characters are present
+        let final_bytes = if *end_pos < *len {
+            &bytes[start_pos - 1..*end_pos]
+        } else {
+            &bytes[start_pos - 1..]
+        };
+
+        out_bytes.extend(final_bytes);
+    }
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
 impl<C: CharContextT> LineProcessorT<C> for ByteLineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
-        let mut out_bytes: Vec<u8> = vec![];
-        let bytes = line.as_bytes();
-        let len = &bytes.len();
-
-        // Handle ASCII/single-bytes only
-        for (start_pos, end_pos) in context.ranged_pairs() {
-            if *start_pos > *len {
-                break;
-            }
-
-            // NOTE: This will panic if multi-byte characters are present
-            let final_bytes = if *end_pos < *len {
-                &bytes[start_pos - 1..*end_pos]
-            } else {
-                &bytes[start_pos - 1..]
-            };
-
-            out_bytes.extend(final_bytes);
-        }
-
-        out_bytes.extend("\n".as_bytes());
-        out_bytes
+        process_line_by_byte(line, context.ranged_pairs())
     }
 }
 
@@ -266,41 +274,45 @@ impl<C: CharContextT, P: LineProcessorT<C>> RtoolT<C, P> for CharProcessor {}
 
 pub struct FieldUtf8LineProcessor {}
 
+pub fn process_line_by_field_utf8(line: &str, ranged_pairs: &Vec<(usize, usize)>, delim: &str) -> Vec<u8> {
+    let mut out_bytes: Vec<u8> = vec![];
+    let delim = delim;
+
+    let fields: Vec<&str> = line.split(delim).collect();
+    let mut has_written = false;
+
+    for (start_pos, end_pos) in ranged_pairs {
+        let len = &fields.len();
+        if *start_pos > *len {
+            break;
+        }
+
+        let extracted_fields = if *end_pos < *len {
+            &fields[start_pos - 1..*end_pos]
+        } else {
+            &fields[start_pos - 1..]
+        };
+
+        for field in extracted_fields {
+            // Delimiter sits between fields
+            if has_written {
+                out_bytes.extend(delim.as_bytes());
+            } else {
+                has_written = true;
+            }
+
+            out_bytes.extend(field.as_bytes());
+        }
+    }
+
+    out_bytes.extend("\n".as_bytes());
+    out_bytes
+}
+
 impl<C: FieldContextT> LineProcessorT<C> for FieldUtf8LineProcessor {
     /// Extract parts of an ASCII encoded line
     fn process(&self, line: &str, context: &C) -> Vec<u8> {
-        let mut out_bytes: Vec<u8> = vec![];
-        let delim = context.delim();
-
-        let fields: Vec<&str> = line.split(delim).collect();
-        let mut has_written = false;
-
-        for (start_pos, end_pos) in context.ranged_pairs() {
-            let len = &fields.len();
-            if *start_pos > *len {
-                break;
-            }
-
-            let extracted_fields = if *end_pos < *len {
-                &fields[start_pos - 1..*end_pos]
-            } else {
-                &fields[start_pos - 1..]
-            };
-
-            for field in extracted_fields {
-                // Delimiter sits between fields
-                if has_written {
-                    out_bytes.extend(delim.as_bytes());
-                } else {
-                    has_written = true;
-                }
-
-                out_bytes.extend(field.as_bytes());
-            }
-        }
-
-        out_bytes.extend("\n".as_bytes());
-        out_bytes
+        process_line_by_field_utf8(line, context.ranged_pairs(), context.delim())
     }
 }
 

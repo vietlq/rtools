@@ -1,6 +1,6 @@
 [package]
 name = "rcut"
-version = "0.0.43"
+version = "0.0.44"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 description = "rcut is a Rust replacement for GNU cut that supports UTF-8."
