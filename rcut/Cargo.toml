@@ -1,11 +1,11 @@
 [package]
 name = "rcut"
-version = "0.0.45"
+version = "0.0.46"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 description = "rcut is a Rust replacement for GNU cut that supports UTF-8."
 license = "MIT/Apache-2.0"
-repository = "https://github.com/vietlq/rcut"
+repository = "https://github.com/vietlq/rtools/tree/master/rcut"
 readme = "README.md"
 include = [
     "src/*.rs",
@@ -15,10 +15,6 @@ include = [
 # cargo metadata: https://doc.rust-lang.org/cargo/commands/cargo-metadata.html
 
 # https://stackoverflow.com/questions/26946646/rust-package-with-both-a-library-and-a-binary
-[lib]
-name = "rcut"
-path = "src/lib.rs"
-
 [[bin]]
 name = "rcut"
 path = "src/main.rs"
@@ -27,6 +23,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = "2.33"
+rcut-lib = "0.46"
 
 [profile.release]
 opt-level = 3

@@ -1,7 +1,8 @@
 extern crate clap;
 use clap::{App, Arg};
 
-use rcut::{
+extern crate rcut_lib;
+use rcut_lib::{
     prepare_ranged_pairs, version, ByteLineProcessor, CharContext, CharProcessor,
     CharUtf8LineProcessor, FieldContext, FieldProcessor, FieldUtf8LineProcessor, RtoolT,
 };
