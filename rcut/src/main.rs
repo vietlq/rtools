@@ -1,10 +1,13 @@
 extern crate clap;
 use clap::{App, Arg};
 
+extern crate rtools_traits;
+use rtools_traits::{RtoolT};
+
 extern crate rcut_lib;
 use rcut_lib::{
     prepare_ranged_pairs, version, ByteLineProcessor, CharContext, CharProcessor,
-    CharUtf8LineProcessor, FieldContext, FieldProcessor, FieldUtf8LineProcessor, RtoolT,
+    CharUtf8LineProcessor, FieldContext, FieldProcessor, FieldUtf8LineProcessor,
 };
 
 /// Perform operations similar to GNU cut
