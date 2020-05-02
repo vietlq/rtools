@@ -3,12 +3,9 @@
 //! are interested in building their own char/word cutter.
 //!
 
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
 use std::{cmp, str};
 
-extern crate "rtools_traits";
+extern crate rtools_traits;
 use rtools_traits::{RtoolT, LineProcessorT};
 
 /// Cargo version specified in the Cargo.toml file

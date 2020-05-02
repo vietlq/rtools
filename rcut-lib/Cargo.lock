@@ -3,3 +3,12 @@
 [[package]]
 name = "rcut-lib"
 version = "0.0.48"
+dependencies = [
+ "rtools-traits",
+]
+
+[[package]]
+name = "rtools-traits"
+version = "0.0.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b92fc36d75899ef1c2b4d06b48230ac8f669a55bf47ef9a32ab57c9e11796d5e"
