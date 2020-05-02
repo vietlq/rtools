@@ -15,6 +15,7 @@ include = [
 # cargo metadata: https://doc.rust-lang.org/cargo/commands/cargo-metadata.html
 
 # https://stackoverflow.com/questions/26946646/rust-package-with-both-a-library-and-a-binary
+# https://stackoverflow.com/questions/44769922/how-to-import-a-crate-dependency-when-the-library-name-is-different-from-the-pac
 [lib]
 name = "rcut_lib"
 path = "src/lib.rs"
