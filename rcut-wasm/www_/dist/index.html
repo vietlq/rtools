@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Rcut Wasm</title>
+    <style>
+      #drop_zone {
+        border: 3px dotted blue;
+        width:  500px;
+        height: 200px;
+      }
+
+      .before-drag {
+        background-color: papayawhip;
+      }
+
+      .drag-enter {
+        background-color: yellowgreen;
+      }
+
+      .drop {
+        background-color: orange;
+      }
+    </style>
+    <script src="./bootstrap.js"></script>
+  </head>
+  <body>
+
+    <div id="drop_zone" class="before-drag"
+                        ondrop="dropHandler(event);"
+                        ondragover="dragOverHandler(event);"
+                        ondragenter="dragEnterHandler(event);"
+                        ondragleave="dragLeaveHandler(event);">
+      <p>Drag one or more files to this Drop Zone ...</p>
+    </div>
+
+    <div>
+      <pre id="content"></pre>
+    </div>
+
+    <div>
+      <pre id="dyn_content"></pre>
+    </div>
+
+    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+
+    <script>
+      function dragOverHandler(ev) {
+        // Prevent default behavior (Prevent file from being opened)
+        ev.preventDefault();
+      }
+
+      function dragEnterHandler(ev) {
+        ev.target.className = "drag-enter";
+      }
+
+      function dragLeaveHandler(ev) {
+        ev.target.className = "";
+      }
+
+      function fileHandler(file, idx, consumer) {
+        console.log('... file[' + idx + '].name = ' + file.name);
+        console.log('... file[' + idx + '].size = ' + file.size);
+        console.log('... file[' + idx + '].lastModified = ' + file.lastModified);
+        if (file.type) {
+          console.log('... file[' + idx + '].type = ' + file.type);
+        }
+        if (file.arrayBuffer) {
+          console.log("Got File.arrayBuffer");
+          file.arrayBuffer().then(function(arrayBuffer) {
+            let buf = new Uint8Array(arrayBuffer);
+            console.log('... file[' + idx + '].length = ' + buf.length);
+            console.log('... file[' + idx + '].first_100_bytes = ' + buf.slice(0, 100));
+            try {
+              consumer(buf);
+            } catch(e) {
+              console.error("Got an error when processing Uint8Array!");
+            }
+          });
+        } else {
+          console.log("Fallback on FileReader.onloadend");
+          let fileReader = new FileReader();
+
+          // If we use onloadend, we need to check the readyState.
+          fileReader.onloadend = function(evt) {
+            if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+              let buf = new Uint8Array(evt.target.result);
+              console.log('... file[' + idx + '].length = ' + buf.length);
+              console.log('... file[' + idx + '].first_100_bytes = ' + buf.slice(0, 100));
+              try {
+                consumer(buf);
+              } catch(e) {
+                console.error("Got an error when processing Uint8Array!");
+              }
+            }
+          };
+
+          fileReader.readAsArrayBuffer(file);
+        }
+      }
+
+      function dropHandler(ev) {
+        console.log('File(s) dropped');
+
+        let dynContentEle = document.getElementById("dyn_content");
+        dynContentEle.innerText = "";
+
+        let char_ranges = "9,4,7,3,12,5-15";
+        let consumer = function(raw_array) {
+          dynContentEle.innerText += rcut.process_raw_array(raw_array, char_ranges);
+        };
+
+        // Prevent default behavior (Prevent file from being opened)
+        ev.preventDefault();
+        // Another style
+        ev.target.className = "drop";
+
+        if (ev.dataTransfer.items) {
+          // Use DataTransferItemList interface to access the file(s)
+          for (var i = 0; i < ev.dataTransfer.items.length; i++) {
+            // If dropped items aren't files, reject them
+            if (ev.dataTransfer.items[i].kind === 'file') {
+              var file = ev.dataTransfer.items[i].getAsFile();
+              fileHandler(file, i, consumer);
+            }
+          }
+        } else {
+          // Use DataTransfer interface to access the file(s)
+          for (var i = 0; i < ev.dataTransfer.files.length; i++) {
+            fileHandler(ev.dataTransfer.files[i], i, consumer);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
