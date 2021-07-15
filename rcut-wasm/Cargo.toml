@@ -1,6 +1,6 @@
 [package]
 name = "rcut-wasm"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Le Quoc Viet <vietlq85@gmail.com>"]
 edition = "2018"
 
@@ -12,7 +12,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 wasm-bindgen = "0.2"
-rcut-lib = "0.0.48"
+rcut-lib = "0.0.49"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
