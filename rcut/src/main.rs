@@ -149,7 +149,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
         let ranged_pairs = prepare_ranged_pairs(no_merge, ranged_pairs_str);
         let field_processor = FieldProcessor {};
         let context = FieldContext::new(&ranged_pairs, delim);
-        field_processor.process(&FieldUtf8LineProcessor {}, &files, &context);
+        field_processor.process_to_stdout(&FieldUtf8LineProcessor {}, &files, &context);
     } else {
         let ranged_pairs_str = if char_mode {
             matches.value_of(_STR_CHARACTERS).unwrap()
@@ -162,9 +162,9 @@ pub fn do_rcut(input_args: &Vec<&str>) {
         let context = CharContext::new(&ranged_pairs);
 
         if ascii_mode || byte_mode {
-            char_processor.process(&ByteLineProcessor {}, &files, &context);
+            char_processor.process_to_stdout(&ByteLineProcessor {}, &files, &context);
         } else {
-            char_processor.process(&CharUtf8LineProcessor {}, &files, &context);
+            char_processor.process_to_stdout(&CharUtf8LineProcessor {}, &files, &context);
         }
     };
 }

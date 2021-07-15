@@ -4,4 +4,4 @@ version = 3
 
 [[package]]
 name = "rtools-traits"
-version = "0.0.50"
+version = "0.0.51"
