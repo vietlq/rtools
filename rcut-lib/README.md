@@ -1,6 +1,6 @@
 # rcut
 
-`rcut` is a Rust replacement for GNU cut that supports UTF-8.
+`rcut` is a Rust replacement for GNU `cut` and it supports UTF-8.
 
 The tool `rcut` shines where GNU `cut` falls short:
 
@@ -60,7 +60,7 @@ FLAGS:
     -N, --no-merge
             Do not sort and merge ranges.
             Think of it as cut-n-paste.
-            Sort and merge by default.
+            Sorting and merging enabled by default.
     -V, --version     Prints version information
 
 OPTIONS:

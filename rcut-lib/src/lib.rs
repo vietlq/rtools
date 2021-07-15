@@ -441,6 +441,9 @@ mod tests {
 
     #[test]
     fn test_process_lines_utf8_with_cursor() {
+        use std::io::{BufReader, BufWriter};
+        use std::io::prelude::*;
+
         // https://doc.rust-lang.org/std/io/struct.Cursor.html
         // https://stackoverflow.com/questions/41069865/how-to-create-an-in-memory-object-that-can-be-used-as-a-reader-writer-or-seek
         let input = BufReader::new(std::io::Cursor::new(_STR_BIRDS));
