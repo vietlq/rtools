@@ -1,6 +1,6 @@
 {
   "name": "rcut-wasm",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "create an app to consume rust-generated wasm packages",
   "main": "index.js",
   "bin": {
