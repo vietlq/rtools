@@ -79,7 +79,7 @@ pub trait RtoolT<C, P: LineProcessorT<C>> {
     }
 
     /// Read lines from the input files or STDIN and write results to STDOUT
-    fn process_to_stdout<W: Write>(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
+    fn process_to_stdout(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
         self.process(line_processor, files, &mut BufWriter::new(std::io::stdout()), context);
     }
 }
