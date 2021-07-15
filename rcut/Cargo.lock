@@ -60,7 +60,7 @@ checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
 
 [[package]]
 name = "rcut"
-version = "0.0.51"
+version = "0.0.52"
 dependencies = [
  "clap",
  "rcut-lib",
@@ -69,18 +69,18 @@ dependencies = [
 
 [[package]]
 name = "rcut-lib"
-version = "0.0.51"
+version = "0.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60ad8c9ab540bcc229b2008b6126eb355ca7fd1a3d4048a711948a3ce53528e8"
+checksum = "1cbdd84a9229aadea5974a3000599421b089953aa2d96ecd6386230da2b21cc0"
 dependencies = [
  "rtools-traits",
 ]
 
 [[package]]
 name = "rtools-traits"
-version = "0.0.51"
+version = "0.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b5241b8e9330d62da2188f4de8d497e2bc17aaa379d56b96bc4553b66cd0404"
+checksum = "d4ec73207c2df8fbe62844cd4a51db6257bd88aa990f3a693d59b14f33d8bb81"
 
 [[package]]
 name = "strsim"
