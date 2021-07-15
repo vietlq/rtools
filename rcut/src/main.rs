@@ -21,7 +21,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
 
     let matches = App::new("rcut")
         .version(version())
-        .about("Replacement for GNU cut. Written in Rust.")
+        .about("Replacement for GNU cut. Written in Rust and supports UTF-8.")
         .author("Viet Le")
         .arg(
             Arg::with_name(_STR_BYTES)
@@ -95,7 +95,7 @@ pub fn do_rcut(input_args: &Vec<&str>) {
                 .help(
                     "Do not sort and merge ranges.\n\
                     Think of it as cut-n-paste.\n\
-                    Sort and merge by default.",
+                    Sorting and merging enabled by default."
                 )
                 .next_line_help(true)
                 .required(false)
