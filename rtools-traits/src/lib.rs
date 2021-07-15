@@ -27,7 +27,7 @@ pub trait RtoolT<C, P: LineProcessorT<C>> {
         }
     }
 
-    /// Process readable object: Send it via rcut pipeline
+    /// Process readable object: Send input to the line processor
     fn process_readable<R: std::io::Read, W: std::io::Write>(
         &self,
         line_processor: &P,
@@ -38,7 +38,7 @@ pub trait RtoolT<C, P: LineProcessorT<C>> {
         self.process_lines(line_processor, input, output, &context);
     }
 
-    /// Process files: Send them via rcut pipeline
+    /// Process files: Send them to the line processor
     fn process_files<W: std::io::Write>(
         &self,
         line_processor: &P,
@@ -62,9 +62,10 @@ pub trait RtoolT<C, P: LineProcessorT<C>> {
         }
     }
 
-    /// Cut and paste lines by ranges of characters
+    /// Read lines from the input files or STDIN and send them to the processor
     fn process(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
         // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
+        // TODO: Add a method to take BufWriter<W> instead of assuming STDOUT
         if files.is_empty() {
             self.process_readable(
                 line_processor,
