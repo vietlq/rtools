@@ -1,6 +1,6 @@
 [package]
 name = "rtools-traits"
-version = "0.0.49"
+version = "0.0.50"
 authors = ["Viet Le <vietlq85@gmail.com>"]
 edition = "2018"
 description = "rtools is a type traits library for command line tools that process input by lines."

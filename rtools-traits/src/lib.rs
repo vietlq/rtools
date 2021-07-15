@@ -62,19 +62,24 @@ pub trait RtoolT<C, P: LineProcessorT<C>> {
         }
     }
 
-    /// Read lines from the input files or STDIN and send them to the processor
-    fn process(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
+    /// Read lines from the input files or STDIN and send them to the processor. Results go to defined output
+    fn process<W: std::io::Write>(&self, line_processor: &P, files: &Vec<&str>, writable: &mut W, context: &C) {
         // TODO: What can we do about encodings? ASCII vs UTF-8 vs X
         // TODO: Add a method to take BufWriter<W> instead of assuming STDOUT
         if files.is_empty() {
             self.process_readable(
                 line_processor,
                 BufReader::new(std::io::stdin()),
-                &mut BufWriter::new(std::io::stdout()),
+                &mut BufWriter::new(writable),
                 context,
             );
         } else {
-            self.process_files(line_processor, &files, &mut std::io::stdout(), context);
+            self.process_files(line_processor, &files, writable, context);
         }
+    }
+
+    /// Read lines from the input files or STDIN and write results to STDOUT
+    fn process_to_stdout<W: Write>(&self, line_processor: &P, files: &Vec<&str>, context: &C) {
+        self.process(line_processor, files, &mut BufWriter::new(std::io::stdout()), context);
     }
 }
